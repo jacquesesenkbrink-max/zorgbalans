@@ -159,20 +159,16 @@ export default function DashboardPage() {
 
   const [monthOffset, setMonthOffset] = useState(0);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   const months = useMemo<MonthMeta[]>(() => {
-    const now = new Date();
     const list: MonthMeta[] = [];
     for (let i = 0; i < 4; i += 1) {
-      const date = new Date(
-        now.getFullYear(),
-        now.getMonth() + monthOffset + i,
-        1
-      );
+      const date = new Date(selectedYear, monthOffset + i, 1);
       list.push({ year: date.getFullYear(), monthIndex: date.getMonth() });
     }
     return list;
-  }, [monthOffset]);
+  }, [monthOffset, selectedYear]);
 
   const calendarRange = useMemo(() => {
     if (months.length === 0) return null;
@@ -226,10 +222,8 @@ export default function DashboardPage() {
   }, [closures]);
 
   const balanceSeries = useMemo<BalancePoint[]>(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const start = new Date(year, 0, 1);
-    const end = new Date(year, 11, 31);
+    const start = new Date(selectedYear, 0, 1);
+    const end = new Date(selectedYear, 11, 31);
     const scheduleByWeekday = new Map<number, BaseScheduleEntry>();
     const contractHoursValue = Number(contractHours);
     const weeklyContract = Number.isNaN(contractHoursValue)
@@ -268,7 +262,7 @@ export default function DashboardPage() {
     }
 
     return points;
-  }, [entryTotals, schedule, closureMap, contractHours, carryoverHours]);
+  }, [entryTotals, schedule, closureMap, contractHours, carryoverHours, selectedYear]);
 
   const todayBalance = useMemo(() => {
     const todayIso = formatLocalDate(new Date());
@@ -283,10 +277,12 @@ export default function DashboardPage() {
 
   const ytdTotals = useMemo(() => {
     const todayIso = formatLocalDate(new Date());
+    const cutoffIso =
+      selectedYear === currentYear ? todayIso : `${selectedYear}-12-31`;
     let planned = 0;
     let actual = 0;
     for (const point of balanceSeries) {
-      if (point.iso > todayIso) break;
+      if (point.iso > cutoffIso) break;
       planned += point.planned;
       actual += point.actual;
     }
@@ -295,7 +291,7 @@ export default function DashboardPage() {
       actual: Number(actual.toFixed(2)),
       delta: Number((actual - planned).toFixed(2)),
     };
-  }, [balanceSeries]);
+  }, [balanceSeries, currentYear, selectedYear]);
 
   const selectedEntries = useMemo(() => {
     if (!selectedDate) return [];
@@ -382,7 +378,7 @@ export default function DashboardPage() {
       loadEntries(userId);
       loadSchedule(userId);
       loadProfile(userId);
-      loadYearSettings(userId);
+      loadYearSettings(userId, selectedYear);
       loadClosures(userId);
     } else {
       setEntries([]);
@@ -391,7 +387,7 @@ export default function DashboardPage() {
       setCarryoverHours("0");
       setClosures([]);
     }
-  }, [userId]);
+  }, [userId, selectedYear]);
 
   async function loadSchedule(activeUserId: string) {
     setScheduleLoading(true);
@@ -437,14 +433,14 @@ export default function DashboardPage() {
     setProfileLoading(false);
   }
 
-  async function loadYearSettings(activeUserId: string) {
+  async function loadYearSettings(activeUserId: string, year: number) {
     setCarryoverLoading(true);
     setCarryoverError(null);
     const { data, error } = await supabase
       .from("year_settings")
       .select("year, carryover_hours")
       .eq("user_id", activeUserId)
-      .eq("year", currentYear)
+      .eq("year", year)
       .maybeSingle();
     if (error) {
       setCarryoverError(error.message);
@@ -454,7 +450,7 @@ export default function DashboardPage() {
         .from("year_settings")
         .upsert({
           user_id: activeUserId,
-          year: currentYear,
+          year,
           carryover_hours: 0,
         });
       if (upsertError) {
@@ -597,13 +593,13 @@ export default function DashboardPage() {
     setCarryoverError(null);
     const { error } = await supabase.from("year_settings").upsert({
       user_id: userId,
-      year: currentYear,
+      year: selectedYear,
       carryover_hours: value,
     });
     if (error) {
       setCarryoverError(error.message);
     } else {
-      await loadYearSettings(userId);
+      await loadYearSettings(userId, selectedYear);
     }
     setCarryoverBusy(false);
   }
@@ -720,24 +716,44 @@ export default function DashboardPage() {
                   Overzicht van geplande uren, concept en definitief.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                  Jaar
+                  <select
+                    className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                    value={selectedYear}
+                    onChange={(event) => {
+                      setSelectedYear(Number(event.target.value));
+                      setMonthOffset(0);
+                    }}
+                  >
+                    {Array.from({ length: 3 }).map((_, index) => {
+                      const yearOption = currentYear - 1 + index;
+                      return (
+                        <option key={yearOption} value={yearOption}>
+                          {yearOption}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => setMonthOffset((current) => current - 4)}
                 >
                   Vorige 4 maanden
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => setMonthOffset(0)}
                 >
                   Vandaag
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => setMonthOffset((current) => current + 4)}
                 >
                   Volgende 4 maanden
@@ -1012,7 +1028,7 @@ export default function DashboardPage() {
             <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <h2 className="text-base font-semibold">Startsaldo 1 januari</h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Plus/min uren van vorig jaar voor {currentYear}.
+                Plus/min uren van vorig jaar voor {selectedYear}.
               </p>
               <form
                 className="mt-3 flex items-end gap-2"
