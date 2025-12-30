@@ -379,6 +379,13 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
+                  onClick={() => setMonthOffset(0)}
+                >
+                  Vandaag
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => setMonthOffset((current) => current + 4)}
                 >
                   4 maanden →
