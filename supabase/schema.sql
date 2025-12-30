@@ -49,6 +49,16 @@ create table if not exists public.closures (
   check (end_date >= start_date)
 );
 
+create table if not exists public.year_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  year smallint not null,
+  carryover_hours numeric(6,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, year)
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -75,10 +85,15 @@ create trigger set_closures_updated_at
 before update on public.closures
 for each row execute function public.set_updated_at();
 
+create trigger set_year_settings_updated_at
+before update on public.year_settings
+for each row execute function public.set_updated_at();
+
 alter table public.profiles enable row level security;
 alter table public.base_schedule enable row level security;
 alter table public.work_entries enable row level security;
 alter table public.closures enable row level security;
+alter table public.year_settings enable row level security;
 
 create policy "Profiles are self managed"
   on public.profiles
@@ -100,6 +115,12 @@ create policy "Work entries are user owned"
 
 create policy "Closures are user owned"
   on public.closures
+  for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "Year settings are user owned"
+  on public.year_settings
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());

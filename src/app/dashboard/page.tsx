@@ -24,6 +24,11 @@ type ProfileSettings = {
   contract_hours_week: number;
 };
 
+type YearSettings = {
+  year: number;
+  carryover_hours: number;
+};
+
 type Closure = {
   id: string;
   start_date: string;
@@ -81,6 +86,10 @@ export default function DashboardPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
+  const [carryoverHours, setCarryoverHours] = useState("0");
+  const [carryoverLoading, setCarryoverLoading] = useState(false);
+  const [carryoverError, setCarryoverError] = useState<string | null>(null);
+  const [carryoverBusy, setCarryoverBusy] = useState(false);
   const [closureStart, setClosureStart] = useState("");
   const [closureEnd, setClosureEnd] = useState("");
   const [closureReason, setClosureReason] = useState("");
@@ -149,6 +158,7 @@ export default function DashboardPage() {
   }, [filteredEntries]);
 
   const [monthOffset, setMonthOffset] = useState(0);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   const months = useMemo<MonthMeta[]>(() => {
     const now = new Date();
@@ -234,7 +244,8 @@ export default function DashboardPage() {
     const hasSchedule = scheduleByWeekday.size > 0;
 
     const points: BalancePoint[] = [];
-    let running = 0;
+    const carryoverValue = Number(carryoverHours);
+    let running = Number.isNaN(carryoverValue) ? 0 : carryoverValue;
     for (
       let cursor = new Date(start);
       cursor <= end;
@@ -257,7 +268,7 @@ export default function DashboardPage() {
     }
 
     return points;
-  }, [entryTotals, schedule, closureMap, contractHours]);
+  }, [entryTotals, schedule, closureMap, contractHours, carryoverHours]);
 
   const todayBalance = useMemo(() => {
     const todayIso = formatLocalDate(new Date());
@@ -268,6 +279,22 @@ export default function DashboardPage() {
   const yearEndBalance = useMemo(() => {
     if (balanceSeries.length === 0) return 0;
     return balanceSeries[balanceSeries.length - 1].cumulative;
+  }, [balanceSeries]);
+
+  const ytdTotals = useMemo(() => {
+    const todayIso = formatLocalDate(new Date());
+    let planned = 0;
+    let actual = 0;
+    for (const point of balanceSeries) {
+      if (point.iso > todayIso) break;
+      planned += point.planned;
+      actual += point.actual;
+    }
+    return {
+      planned: Number(planned.toFixed(2)),
+      actual: Number(actual.toFixed(2)),
+      delta: Number((actual - planned).toFixed(2)),
+    };
   }, [balanceSeries]);
 
   const selectedEntries = useMemo(() => {
@@ -355,11 +382,13 @@ export default function DashboardPage() {
       loadEntries(userId);
       loadSchedule(userId);
       loadProfile(userId);
+      loadYearSettings(userId);
       loadClosures(userId);
     } else {
       setEntries([]);
       setSchedule([]);
       setContractHours("20");
+      setCarryoverHours("0");
       setClosures([]);
     }
   }, [userId]);
@@ -406,6 +435,37 @@ export default function DashboardPage() {
       setContractHours(String(value));
     }
     setProfileLoading(false);
+  }
+
+  async function loadYearSettings(activeUserId: string) {
+    setCarryoverLoading(true);
+    setCarryoverError(null);
+    const { data, error } = await supabase
+      .from("year_settings")
+      .select("year, carryover_hours")
+      .eq("user_id", activeUserId)
+      .eq("year", currentYear)
+      .maybeSingle();
+    if (error) {
+      setCarryoverError(error.message);
+      setCarryoverHours("0");
+    } else if (!data) {
+      const { error: upsertError } = await supabase
+        .from("year_settings")
+        .upsert({
+          user_id: activeUserId,
+          year: currentYear,
+          carryover_hours: 0,
+        });
+      if (upsertError) {
+        setCarryoverError(upsertError.message);
+      }
+      setCarryoverHours("0");
+    } else {
+      const value = (data as YearSettings).carryover_hours ?? 0;
+      setCarryoverHours(String(value));
+    }
+    setCarryoverLoading(false);
   }
 
   async function loadClosures(activeUserId: string) {
@@ -520,6 +580,32 @@ export default function DashboardPage() {
       await loadProfile(userId);
     }
     setProfileBusy(false);
+  }
+
+  async function handleSaveCarryover(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!userId) {
+      setCarryoverError("Je bent niet ingelogd.");
+      return;
+    }
+    const value = Number(carryoverHours);
+    if (Number.isNaN(value) || value < -9999 || value > 9999) {
+      setCarryoverError("Vul een geldig saldo in.");
+      return;
+    }
+    setCarryoverBusy(true);
+    setCarryoverError(null);
+    const { error } = await supabase.from("year_settings").upsert({
+      user_id: userId,
+      year: currentYear,
+      carryover_hours: value,
+    });
+    if (error) {
+      setCarryoverError(error.message);
+    } else {
+      await loadYearSettings(userId);
+    }
+    setCarryoverBusy(false);
   }
 
   async function handleDeleteEntry(entryId: string) {
@@ -659,7 +745,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+              <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
                 <p className="text-xs font-semibold uppercase text-zinc-400">
                   Cumulatief tot vandaag
                 </p>
@@ -667,12 +753,38 @@ export default function DashboardPage() {
                   {todayBalance}u
                 </p>
               </div>
-              <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+              <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
                 <p className="text-xs font-semibold uppercase text-zinc-400">
                   Prognose einde jaar
                 </p>
                 <p className="mt-2 text-xl font-semibold text-zinc-900">
                   {yearEndBalance}u
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                  Werkelijk (YTD)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-zinc-900">
+                  {ytdTotals.actual}u
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                  Contract (YTD)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-zinc-900">
+                  {ytdTotals.planned}u
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                  Verschil (YTD)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-zinc-900">
+                  {ytdTotals.delta}u
                 </p>
               </div>
             </div>
@@ -894,6 +1006,45 @@ export default function DashboardPage() {
               {!hasSession ? (
                 <p className="mt-2 text-xs text-zinc-500">
                   Log in om contracturen op te slaan.
+                </p>
+              ) : null}
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <h2 className="text-base font-semibold">Startsaldo 1 januari</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Plus/min uren van vorig jaar voor {currentYear}.
+              </p>
+              <form
+                className="mt-3 flex items-end gap-2"
+                onSubmit={handleSaveCarryover}
+              >
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
+                  Uren
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="-9999"
+                    max="9999"
+                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+                    value={carryoverHours}
+                    onChange={(event) => setCarryoverHours(event.target.value)}
+                    disabled={carryoverLoading}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
+                  disabled={carryoverBusy || !hasSession}
+                >
+                  {carryoverBusy ? "Opslaan..." : "Opslaan"}
+                </button>
+              </form>
+              {carryoverError ? (
+                <p className="mt-2 text-xs text-rose-600">{carryoverError}</p>
+              ) : null}
+              {!hasSession ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Log in om het startsaldo op te slaan.
                 </p>
               ) : null}
             </div>
