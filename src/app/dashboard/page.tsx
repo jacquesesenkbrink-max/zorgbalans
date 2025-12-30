@@ -16,8 +16,6 @@ type BaseScheduleEntry = {
   id: string;
   weekday: number;
   planned_hours: number;
-  start_time: string | null;
-  end_time: string | null;
   active: boolean;
   notes: string | null;
 };
@@ -72,8 +70,6 @@ export default function DashboardPage() {
   const [formBusy, setFormBusy] = useState(false);
   const [scheduleWeekday, setScheduleWeekday] = useState("0");
   const [scheduleHours, setScheduleHours] = useState("8");
-  const [scheduleStart, setScheduleStart] = useState("");
-  const [scheduleEnd, setScheduleEnd] = useState("");
   const [scheduleActive, setScheduleActive] = useState(true);
   const [scheduleNotes, setScheduleNotes] = useState("");
   const [scheduleBusy, setScheduleBusy] = useState(false);
@@ -106,7 +102,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!selectedDate) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = formatLocalDate(new Date());
       setSelectedDate(today);
       if (!formDate) {
         setFormDate(today);
@@ -185,7 +181,7 @@ export default function DashboardPage() {
         if (date < calendarRange.start || date > calendarRange.end) {
           continue;
         }
-        const iso = date.toISOString().slice(0, 10);
+        const iso = formatLocalDate(date);
         map.set(iso, holiday.name);
       }
     }
@@ -202,7 +198,7 @@ export default function DashboardPage() {
         cursor <= end;
         cursor.setDate(cursor.getDate() + 1)
       ) {
-        const iso = cursor.toISOString().slice(0, 10);
+        const iso = formatLocalDate(cursor);
         const list = map.get(iso) ?? [];
         list.push(closure);
         map.set(iso, list);
@@ -231,7 +227,7 @@ export default function DashboardPage() {
       cursor <= end;
       cursor.setDate(cursor.getDate() + 1)
     ) {
-      const iso = cursor.toISOString().slice(0, 10);
+      const iso = formatLocalDate(cursor);
       const weekday = (cursor.getDay() + 6) % 7;
       const closuresForDay = closureMap.get(iso) ?? [];
       const isClosed = closuresForDay.some((closure) => !closure.can_work);
@@ -247,7 +243,7 @@ export default function DashboardPage() {
   }, [entryTotals, schedule, closureMap]);
 
   const todayBalance = useMemo(() => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = formatLocalDate(new Date());
     const point = balanceSeries.find((item) => item.iso === todayIso);
     return point?.cumulative ?? 0;
   }, [balanceSeries]);
@@ -288,7 +284,7 @@ export default function DashboardPage() {
       const date = new Date(year, monthIndex, i - firstWeekday + 1);
       cells.push({
         date,
-        iso: date.toISOString().slice(0, 10),
+        iso: formatLocalDate(date),
         inMonth: false,
       });
     }
@@ -297,7 +293,7 @@ export default function DashboardPage() {
       const date = new Date(year, monthIndex, day);
       cells.push({
         date,
-        iso: date.toISOString().slice(0, 10),
+        iso: formatLocalDate(date),
         inMonth: true,
       });
     }
@@ -311,6 +307,13 @@ export default function DashboardPage() {
       month: "long",
       year: "numeric",
     });
+  }
+
+  function formatLocalDate(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   async function loadEntries(activeUserId: string) {
@@ -347,7 +350,7 @@ export default function DashboardPage() {
     setScheduleError(null);
     const { data, error } = await supabase
       .from("base_schedule")
-      .select("id, weekday, planned_hours, start_time, end_time, active, notes")
+      .select("id, weekday, planned_hours, active, notes")
       .eq("user_id", activeUserId)
       .order("weekday", { ascending: true });
     if (error) {
@@ -431,8 +434,6 @@ export default function DashboardPage() {
       user_id: userId,
       weekday: weekdayValue,
       planned_hours: hoursValue,
-      start_time: scheduleStart || null,
-      end_time: scheduleEnd || null,
       active: scheduleActive,
       notes: scheduleNotes.trim() ? scheduleNotes.trim() : null,
     };
@@ -914,26 +915,6 @@ export default function DashboardPage() {
                     required
                   />
                 </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                    Starttijd
-                    <input
-                      type="time"
-                      className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none"
-                      value={scheduleStart}
-                      onChange={(event) => setScheduleStart(event.target.value)}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                    Eindtijd
-                    <input
-                      type="time"
-                      className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none"
-                      value={scheduleEnd}
-                      onChange={(event) => setScheduleEnd(event.target.value)}
-                    />
-                  </label>
-                </div>
                 <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
                   <input
                     type="checkbox"
@@ -992,9 +973,6 @@ export default function DashboardPage() {
                         </p>
                         <p className="text-xs text-zinc-500">
                           {entry.active ? "Actief" : "Inactief"}
-                          {entry.start_time && entry.end_time
-                            ? ` - ${entry.start_time} - ${entry.end_time}`
-                            : ""}
                           {entry.notes ? ` - ${entry.notes}` : ""}
                         </p>
                       </div>
