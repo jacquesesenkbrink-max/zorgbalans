@@ -1,22 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+
+type WorkEntry = {
+  id: string;
+  work_date: string;
+  hours: number;
+  status: "draft" | "final";
+  notes: string | null;
+};
 
 export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<WorkEntry[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(false);
+  const [entriesError, setEntriesError] = useState<string | null>(null);
+  const [formDate, setFormDate] = useState("");
+  const [formHours, setFormHours] = useState("8");
+  const [formStatus, setFormStatus] = useState<"draft" | "final">("draft");
+  const [formNotes, setFormNotes] = useState("");
+  const [formBusy, setFormBusy] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       setEmail(data.session?.user.email ?? null);
+      setUserId(data.session?.user.id ?? null);
       setLoading(false);
     });
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setEmail(session?.user.email ?? null);
+        setUserId(session?.user.id ?? null);
         setLoading(false);
       }
     );
@@ -25,6 +44,63 @@ export default function DashboardPage() {
       subscription.subscription.unsubscribe();
     };
   }, []);
+
+  const hasSession = useMemo(() => Boolean(email && userId), [email, userId]);
+
+  async function loadEntries(activeUserId: string) {
+    setEntriesLoading(true);
+    setEntriesError(null);
+    const { data, error } = await supabase
+      .from("work_entries")
+      .select("id, work_date, hours, status, notes")
+      .eq("user_id", activeUserId)
+      .order("work_date", { ascending: true });
+    if (error) {
+      setEntriesError(error.message);
+      setEntries([]);
+    } else {
+      setEntries((data as WorkEntry[]) ?? []);
+    }
+    setEntriesLoading(false);
+  }
+
+  useEffect(() => {
+    if (userId) {
+      loadEntries(userId);
+    } else {
+      setEntries([]);
+    }
+  }, [userId]);
+
+  async function handleAddEntry(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!userId) {
+      setEntriesError("Je bent niet ingelogd.");
+      return;
+    }
+    setFormBusy(true);
+    setEntriesError(null);
+    const hoursValue = Number(formHours);
+    if (!formDate || Number.isNaN(hoursValue)) {
+      setEntriesError("Vul een datum en geldige uren in.");
+      setFormBusy(false);
+      return;
+    }
+    const { error } = await supabase.from("work_entries").insert({
+      user_id: userId,
+      work_date: formDate,
+      hours: hoursValue,
+      status: formStatus,
+      notes: formNotes.trim() ? formNotes.trim() : null,
+    });
+    if (error) {
+      setEntriesError(error.message);
+    } else {
+      setFormNotes("");
+      await loadEntries(userId);
+    }
+    setFormBusy(false);
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
@@ -47,7 +123,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           {loading ? (
             <p className="text-sm text-zinc-600">Sessiestatus laden...</p>
-          ) : email ? (
+          ) : hasSession ? (
             <p className="text-sm text-zinc-600">
               Ingelogd als <span className="font-semibold">{email}</span>
             </p>
@@ -63,11 +139,103 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500">
-            Hier komt het 6‑maanden kalender‑overzicht.
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-semibold">Nieuwe uren</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Voeg een concept of definitieve dienst toe.
+            </p>
+            <form className="mt-4 flex flex-col gap-3" onSubmit={handleAddEntry}>
+              <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+                Datum
+                <input
+                  type="date"
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                  value={formDate}
+                  onChange={(event) => setFormDate(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+                Uren
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  max="24"
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                  value={formHours}
+                  onChange={(event) => setFormHours(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+                Status
+                <select
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                  value={formStatus}
+                  onChange={(event) =>
+                    setFormStatus(event.target.value as "draft" | "final")
+                  }
+                >
+                  <option value="draft">Concept</option>
+                  <option value="final">Definitief</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+                Opmerking (optioneel)
+                <input
+                  type="text"
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                  value={formNotes}
+                  onChange={(event) => setFormNotes(event.target.value)}
+                />
+              </label>
+              <button
+                type="submit"
+                className="mt-2 inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
+                disabled={formBusy || !hasSession}
+              >
+                {formBusy ? "Opslaan..." : "Uren opslaan"}
+              </button>
+              {!hasSession ? (
+                <p className="text-xs text-zinc-500">
+                  Log in om uren op te slaan.
+                </p>
+              ) : null}
+            </form>
           </div>
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500">
-            Hier komt het cumulatieve saldo en dagdetails.
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-semibold">Jouw diensten</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Concept en definitieve uren voor dit jaar.
+            </p>
+            <div className="mt-4 space-y-3">
+              {entriesLoading ? (
+                <p className="text-sm text-zinc-600">Laden...</p>
+              ) : entriesError ? (
+                <p className="text-sm text-rose-600">{entriesError}</p>
+              ) : entries.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  Nog geen diensten toegevoegd.
+                </p>
+              ) : (
+                entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 text-sm"
+                  >
+                    <div>
+                      <p className="font-semibold">{entry.work_date}</p>
+                      <p className="text-xs text-zinc-500">
+                        {entry.status === "final" ? "Definitief" : "Concept"}
+                        {entry.notes ? ` · ${entry.notes}` : ""}
+                      </p>
+                    </div>
+                    <span className="font-semibold">{entry.hours}u</span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </main>
