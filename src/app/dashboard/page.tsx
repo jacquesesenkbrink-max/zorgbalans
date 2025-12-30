@@ -20,6 +20,10 @@ type BaseScheduleEntry = {
   notes: string | null;
 };
 
+type ProfileSettings = {
+  contract_hours_week: number;
+};
+
 type Closure = {
   id: string;
   start_date: string;
@@ -73,6 +77,10 @@ export default function DashboardPage() {
   const [scheduleActive, setScheduleActive] = useState(true);
   const [scheduleNotes, setScheduleNotes] = useState("");
   const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [contractHours, setContractHours] = useState("20");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileBusy, setProfileBusy] = useState(false);
   const [closureStart, setClosureStart] = useState("");
   const [closureEnd, setClosureEnd] = useState("");
   const [closureReason, setClosureReason] = useState("");
@@ -213,12 +221,17 @@ export default function DashboardPage() {
     const start = new Date(year, 0, 1);
     const end = new Date(year, 11, 31);
     const scheduleByWeekday = new Map<number, BaseScheduleEntry>();
+    const contractHoursValue = Number(contractHours);
+    const weeklyContract = Number.isNaN(contractHoursValue)
+      ? 0
+      : contractHoursValue;
 
     for (const entry of schedule) {
       if (entry.active) {
         scheduleByWeekday.set(entry.weekday, entry);
       }
     }
+    const hasSchedule = scheduleByWeekday.size > 0;
 
     const points: BalancePoint[] = [];
     let running = 0;
@@ -231,16 +244,20 @@ export default function DashboardPage() {
       const weekday = (cursor.getDay() + 6) % 7;
       const closuresForDay = closureMap.get(iso) ?? [];
       const isClosed = closuresForDay.some((closure) => !closure.can_work);
+      const fallbackPlanned =
+        weekday < 5 ? Number((weeklyContract / 5).toFixed(2)) : 0;
       const planned = isClosed
         ? 0
-        : scheduleByWeekday.get(weekday)?.planned_hours ?? 0;
+        : hasSchedule
+        ? scheduleByWeekday.get(weekday)?.planned_hours ?? 0
+        : fallbackPlanned;
       const actual = entryTotals.get(iso)?.hours ?? 0;
       running = Number((running + (actual - planned)).toFixed(2));
       points.push({ iso, planned, actual, cumulative: running });
     }
 
     return points;
-  }, [entryTotals, schedule, closureMap]);
+  }, [entryTotals, schedule, closureMap, contractHours]);
 
   const todayBalance = useMemo(() => {
     const todayIso = formatLocalDate(new Date());
@@ -337,10 +354,12 @@ export default function DashboardPage() {
     if (userId) {
       loadEntries(userId);
       loadSchedule(userId);
+      loadProfile(userId);
       loadClosures(userId);
     } else {
       setEntries([]);
       setSchedule([]);
+      setContractHours("20");
       setClosures([]);
     }
   }, [userId]);
@@ -360,6 +379,33 @@ export default function DashboardPage() {
       setSchedule((data as BaseScheduleEntry[]) ?? []);
     }
     setScheduleLoading(false);
+  }
+
+  async function loadProfile(activeUserId: string) {
+    setProfileLoading(true);
+    setProfileError(null);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("contract_hours_week")
+      .eq("id", activeUserId)
+      .maybeSingle();
+    if (error) {
+      setProfileError(error.message);
+      setContractHours("20");
+    } else if (!data) {
+      const { error: upsertError } = await supabase.from("profiles").upsert({
+        id: activeUserId,
+        contract_hours_week: 20,
+      });
+      if (upsertError) {
+        setProfileError(upsertError.message);
+      }
+      setContractHours("20");
+    } else {
+      const value = (data as ProfileSettings).contract_hours_week ?? 20;
+      setContractHours(String(value));
+    }
+    setProfileLoading(false);
   }
 
   async function loadClosures(activeUserId: string) {
@@ -449,6 +495,31 @@ export default function DashboardPage() {
       await loadSchedule(userId);
     }
     setScheduleBusy(false);
+  }
+
+  async function handleSaveContract(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!userId) {
+      setProfileError("Je bent niet ingelogd.");
+      return;
+    }
+    const value = Number(contractHours);
+    if (Number.isNaN(value) || value < 0 || value > 80) {
+      setProfileError("Vul een geldig aantal contracturen in.");
+      return;
+    }
+    setProfileBusy(true);
+    setProfileError(null);
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      contract_hours_week: value,
+    });
+    if (error) {
+      setProfileError(error.message);
+    } else {
+      await loadProfile(userId);
+    }
+    setProfileBusy(false);
   }
 
   async function handleDeleteEntry(entryId: string) {
@@ -786,6 +857,45 @@ export default function DashboardPage() {
                   Geen dag geselecteerd.
                 </p>
               )}
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <h2 className="text-base font-semibold">Contracturen</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Aantal contracturen per week.
+              </p>
+              <form
+                className="mt-3 flex items-end gap-2"
+                onSubmit={handleSaveContract}
+              >
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
+                  Uren per week
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    max="80"
+                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+                    value={contractHours}
+                    onChange={(event) => setContractHours(event.target.value)}
+                    disabled={profileLoading}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
+                  disabled={profileBusy || !hasSession}
+                >
+                  {profileBusy ? "Opslaan..." : "Opslaan"}
+                </button>
+              </form>
+              {profileError ? (
+                <p className="mt-2 text-xs text-rose-600">{profileError}</p>
+              ) : null}
+              {!hasSession ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Log in om contracturen op te slaan.
+                </p>
+              ) : null}
             </div>
             <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <h2 className="text-base font-semibold">Nieuwe uren</h2>
