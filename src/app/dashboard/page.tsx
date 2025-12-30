@@ -115,15 +115,21 @@ export default function DashboardPage() {
     return totals;
   }, [filteredEntries]);
 
+  const [monthOffset, setMonthOffset] = useState(0);
+
   const months = useMemo<MonthMeta[]>(() => {
     const now = new Date();
     const list: MonthMeta[] = [];
-    for (let i = 0; i < 6; i += 1) {
-      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    for (let i = 0; i < 4; i += 1) {
+      const date = new Date(
+        now.getFullYear(),
+        now.getMonth() + monthOffset + i,
+        1
+      );
       list.push({ year: date.getFullYear(), monthIndex: date.getMonth() });
     }
     return list;
-  }, []);
+  }, [monthOffset]);
 
   const balanceSeries = useMemo<BalancePoint[]>(() => {
     const now = new Date();
@@ -355,10 +361,30 @@ export default function DashboardPage() {
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold">6-maanden overzicht</h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Overzicht van geplande uren, concept en definitief.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">4-maanden overzicht</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Overzicht van geplande uren, concept en definitief.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
+                  onClick={() => setMonthOffset((current) => current - 4)}
+                >
+                  ← 4 maanden
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
+                  onClick={() => setMonthOffset((current) => current + 4)}
+                >
+                  4 maanden →
+                </button>
+              </div>
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase text-zinc-400">
