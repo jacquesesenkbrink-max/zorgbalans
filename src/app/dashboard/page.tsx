@@ -46,6 +46,8 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<WorkEntry[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [entriesError, setEntriesError] = useState<string | null>(null);
+  const [showDraft, setShowDraft] = useState(true);
+  const [showFinal, setShowFinal] = useState(true);
   const [schedule, setSchedule] = useState<BaseScheduleEntry[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -85,12 +87,20 @@ export default function DashboardPage() {
 
   const hasSession = useMemo(() => Boolean(email && userId), [email, userId]);
 
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (entry.status === "draft" && !showDraft) return false;
+      if (entry.status === "final" && !showFinal) return false;
+      return true;
+    });
+  }, [entries, showDraft, showFinal]);
+
   const entryTotals = useMemo(() => {
     const totals = new Map<
       string,
       { hours: number; hasDraft: boolean; hasFinal: boolean }
     >();
-    for (const entry of entries) {
+    for (const entry of filteredEntries) {
       const current = totals.get(entry.work_date) ?? {
         hours: 0,
         hasDraft: false,
@@ -103,7 +113,7 @@ export default function DashboardPage() {
       });
     }
     return totals;
-  }, [entries]);
+  }, [filteredEntries]);
 
   const months = useMemo<MonthMeta[]>(() => {
     const now = new Date();
@@ -366,6 +376,24 @@ export default function DashboardPage() {
                   {yearEndBalance}u
                 </p>
               </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+              <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
+                <input
+                  type="checkbox"
+                  checked={showDraft}
+                  onChange={(event) => setShowDraft(event.target.checked)}
+                />
+                Concept
+              </label>
+              <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
+                <input
+                  type="checkbox"
+                  checked={showFinal}
+                  onChange={(event) => setShowFinal(event.target.checked)}
+                />
+                Definitief
+              </label>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {months.map((month) => {
@@ -635,12 +663,12 @@ export default function DashboardPage() {
                 <p className="text-sm text-zinc-600">Laden...</p>
               ) : entriesError ? (
                 <p className="text-sm text-rose-600">{entriesError}</p>
-              ) : entries.length === 0 ? (
+              ) : filteredEntries.length === 0 ? (
                 <p className="text-sm text-zinc-500">
                   Nog geen diensten toegevoegd.
                 </p>
               ) : (
-                entries.map((entry) => (
+                filteredEntries.map((entry) => (
                   <div
                     key={entry.id}
                     className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 text-sm"
