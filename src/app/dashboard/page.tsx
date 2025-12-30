@@ -11,6 +11,17 @@ type WorkEntry = {
   notes: string | null;
 };
 
+type MonthMeta = {
+  year: number;
+  monthIndex: number;
+};
+
+type DayCell = {
+  date: Date;
+  iso: string;
+  inMonth: boolean;
+};
+
 export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -46,6 +57,71 @@ export default function DashboardPage() {
   }, []);
 
   const hasSession = useMemo(() => Boolean(email && userId), [email, userId]);
+
+  const entryTotals = useMemo(() => {
+    const totals = new Map<
+      string,
+      { hours: number; hasDraft: boolean; hasFinal: boolean }
+    >();
+    for (const entry of entries) {
+      const current = totals.get(entry.work_date) ?? {
+        hours: 0,
+        hasDraft: false,
+        hasFinal: false,
+      };
+      totals.set(entry.work_date, {
+        hours: Number((current.hours + entry.hours).toFixed(2)),
+        hasDraft: current.hasDraft || entry.status === "draft",
+        hasFinal: current.hasFinal || entry.status === "final",
+      });
+    }
+    return totals;
+  }, [entries]);
+
+  const months = useMemo<MonthMeta[]>(() => {
+    const now = new Date();
+    const list: MonthMeta[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      list.push({ year: date.getFullYear(), monthIndex: date.getMonth() });
+    }
+    return list;
+  }, []);
+
+  function buildMonthCells({ year, monthIndex }: MonthMeta): DayCell[] {
+    const firstDay = new Date(year, monthIndex, 1);
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const firstWeekday = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const cells: DayCell[] = [];
+
+    for (let i = 0; i < firstWeekday; i += 1) {
+      const date = new Date(year, monthIndex, i - firstWeekday + 1);
+      cells.push({
+        date,
+        iso: date.toISOString().slice(0, 10),
+        inMonth: false,
+      });
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const date = new Date(year, monthIndex, day);
+      cells.push({
+        date,
+        iso: date.toISOString().slice(0, 10),
+        inMonth: true,
+      });
+    }
+
+    return cells;
+  }
+
+  function monthLabel({ year, monthIndex }: MonthMeta) {
+    const date = new Date(year, monthIndex, 1);
+    return date.toLocaleDateString("nl-NL", {
+      month: "long",
+      year: "numeric",
+    });
+  }
 
   async function loadEntries(activeUserId: string) {
     setEntriesLoading(true);
@@ -138,8 +214,72 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-semibold">6-maanden overzicht</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Overzicht van geplande uren, concept en definitief.
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {months.map((month) => {
+                const cells = buildMonthCells(month);
+                return (
+                  <div
+                    key={`${month.year}-${month.monthIndex}`}
+                    className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                  >
+                    <p className="text-sm font-semibold capitalize text-zinc-700">
+                      {monthLabel(month)}
+                    </p>
+                    <div className="mt-3 grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                      {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map(
+                        (label) => (
+                          <div key={label} className="py-1 text-center">
+                            {label}
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-xs">
+                      {cells.map((cell) => {
+                        const totals = entryTotals.get(cell.iso);
+                        const hasFinal = totals?.hasFinal ?? false;
+                        const hasDraft = totals?.hasDraft ?? false;
+                        const hours = totals?.hours ?? 0;
+                        const tone = hasFinal
+                          ? "bg-emerald-100 text-emerald-900"
+                          : hasDraft
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-white text-zinc-500";
+                        return (
+                          <div
+                            key={cell.iso}
+                            className={`flex h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 px-1 ${tone} ${
+                              cell.inMonth ? "" : "opacity-40"
+                            }`}
+                          >
+                            <span className="text-sm font-semibold">
+                              {cell.date.getDate()}
+                            </span>
+                            {hours > 0 ? (
+                              <span className="text-[11px] font-semibold">
+                                {hours}u
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-zinc-400">
+                                —
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-4">
             <h2 className="text-base font-semibold">Nieuwe uren</h2>
             <p className="mt-1 text-sm text-zinc-600">
               Voeg een concept of definitieve dienst toe.
