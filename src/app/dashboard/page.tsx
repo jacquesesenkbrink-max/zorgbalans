@@ -448,11 +448,14 @@ export default function DashboardPage() {
     } else if (!data) {
       const { error: upsertError } = await supabase
         .from("year_settings")
-        .upsert({
-          user_id: activeUserId,
-          year,
-          carryover_hours: 0,
-        });
+        .upsert(
+          {
+            user_id: activeUserId,
+            year,
+            carryover_hours: 0,
+          },
+          { onConflict: "user_id,year" }
+        );
       if (upsertError) {
         setCarryoverError(upsertError.message);
       }
@@ -591,11 +594,14 @@ export default function DashboardPage() {
     }
     setCarryoverBusy(true);
     setCarryoverError(null);
-    const { error } = await supabase.from("year_settings").upsert({
-      user_id: userId,
-      year: selectedYear,
-      carryover_hours: value,
-    });
+    const { error } = await supabase.from("year_settings").upsert(
+      {
+        user_id: userId,
+        year: selectedYear,
+        carryover_hours: value,
+      },
+      { onConflict: "user_id,year" }
+    );
     if (error) {
       setCarryoverError(error.message);
     } else {
