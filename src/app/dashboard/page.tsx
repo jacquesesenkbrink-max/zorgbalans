@@ -32,6 +32,13 @@ type DayCell = {
   inMonth: boolean;
 };
 
+type BalancePoint = {
+  iso: string;
+  planned: number;
+  actual: number;
+  cumulative: number;
+};
+
 export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -107,6 +114,49 @@ export default function DashboardPage() {
     }
     return list;
   }, []);
+
+  const balanceSeries = useMemo<BalancePoint[]>(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31);
+    const scheduleByWeekday = new Map<number, BaseScheduleEntry>();
+
+    for (const entry of schedule) {
+      if (entry.active) {
+        scheduleByWeekday.set(entry.weekday, entry);
+      }
+    }
+
+    const points: BalancePoint[] = [];
+    let running = 0;
+    for (
+      let cursor = new Date(start);
+      cursor <= end;
+      cursor.setDate(cursor.getDate() + 1)
+    ) {
+      const iso = cursor.toISOString().slice(0, 10);
+      const weekday = (cursor.getDay() + 6) % 7;
+      const planned =
+        scheduleByWeekday.get(weekday)?.planned_hours ?? 0;
+      const actual = entryTotals.get(iso)?.hours ?? 0;
+      running = Number((running + (actual - planned)).toFixed(2));
+      points.push({ iso, planned, actual, cumulative: running });
+    }
+
+    return points;
+  }, [entryTotals, schedule]);
+
+  const todayBalance = useMemo(() => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const point = balanceSeries.find((item) => item.iso === todayIso);
+    return point?.cumulative ?? 0;
+  }, [balanceSeries]);
+
+  const yearEndBalance = useMemo(() => {
+    if (balanceSeries.length === 0) return 0;
+    return balanceSeries[balanceSeries.length - 1].cumulative;
+  }, [balanceSeries]);
 
   function buildMonthCells({ year, monthIndex }: MonthMeta): DayCell[] {
     const firstDay = new Date(year, monthIndex, 1);
@@ -299,6 +349,24 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-zinc-600">
               Overzicht van geplande uren, concept en definitief.
             </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-zinc-400">
+                  Cumulatief tot vandaag
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {todayBalance}u
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-zinc-400">
+                  Prognose einde jaar
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {yearEndBalance}u
+                </p>
+              </div>
+            </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {months.map((month) => {
                 const cells = buildMonthCells(month);
