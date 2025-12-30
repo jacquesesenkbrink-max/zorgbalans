@@ -519,13 +519,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-16">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-10">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
               Dashboard
             </p>
-            <h1 className="text-3xl font-semibold">Jaarplanner</h1>
+            <h1 className="text-2xl font-semibold">Jaarplanner</h1>
           </div>
           <a
             href="/login"
@@ -535,7 +535,7 @@ export default function DashboardPage() {
           </a>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           {loading ? (
             <p className="text-sm text-zinc-600">Sessiestatus laden...</p>
           ) : hasSession ? (
@@ -554,7 +554,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">4-maanden overzicht</h2>
@@ -568,7 +568,7 @@ export default function DashboardPage() {
                   className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => setMonthOffset((current) => current - 4)}
                 >
-                  <- 4 maanden
+                  Vorige 4 maanden
                 </button>
                 <button
                   type="button"
@@ -582,7 +582,7 @@ export default function DashboardPage() {
                   className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => setMonthOffset((current) => current + 4)}
                 >
-                  4 maanden ->
+                  Volgende 4 maanden
                 </button>
               </div>
             </div>
@@ -669,7 +669,7 @@ export default function DashboardPage() {
                             type="button"
                             key={cell.iso}
                             onClick={() => handleSelectDate(cell.iso)}
-                            className={`flex h-14 flex-col items-center justify-center rounded-lg border px-1 ${tone} ${
+                            className={`flex h-12 flex-col items-center justify-center rounded-lg border px-1 ${tone} ${
                               cell.inMonth ? "" : "opacity-40"
                             } ${isSelected ? "border-zinc-900" : "border-zinc-200"}`}
                           >
@@ -701,7 +701,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="space-y-4">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
               <h2 className="text-base font-semibold">Dagdetails</h2>
               <p className="mt-1 text-sm text-zinc-600">
                 Klik op een dag in de kalender om details te bekijken of te bewerken.
@@ -786,7 +786,7 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
               <h2 className="text-base font-semibold">Nieuwe uren</h2>
               <p className="mt-1 text-sm text-zinc-600">
                 Voeg een concept of definitieve dienst toe.
@@ -876,7 +876,7 @@ export default function DashboardPage() {
               </form>
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
               <h2 className="text-base font-semibold">Basisrooster</h2>
               <p className="mt-1 text-sm text-zinc-600">
                 Stel je vaste weekpatroon in.
@@ -1005,7 +1005,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
               <h2 className="text-base font-semibold">Sluitingsdagen</h2>
               <p className="mt-1 text-sm text-zinc-600">
                 Geef aan wanneer het bedrijf gesloten is.
@@ -1102,7 +1102,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-base font-semibold">Jouw diensten</h2>
             <p className="mt-1 text-sm text-zinc-600">
               Concept en definitieve uren voor dit jaar.
