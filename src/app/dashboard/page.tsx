@@ -992,11 +992,13 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <h2 className="text-base font-semibold">Contracturen</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Aantal contracturen per week.
-              </p>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Contracturen
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Aantal contracturen per week.
+                </span>
+              </summary>
               <form
                 className="mt-3 flex items-end gap-2"
                 onSubmit={handleSaveContract}
@@ -1030,12 +1032,14 @@ export default function DashboardPage() {
                   Log in om contracturen op te slaan.
                 </p>
               ) : null}
-            </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <h2 className="text-base font-semibold">Startsaldo 1 januari</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Plus/min uren van vorig jaar voor {selectedYear}.
-              </p>
+            </details>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Startsaldo 1 januari
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Plus/min uren van vorig jaar voor {selectedYear}.
+                </span>
+              </summary>
               <form
                 className="mt-3 flex items-end gap-2"
                 onSubmit={handleSaveCarryover}
@@ -1069,7 +1073,7 @@ export default function DashboardPage() {
                   Log in om het startsaldo op te slaan.
                 </p>
               ) : null}
-            </div>
+            </details>
             <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <h2 className="text-base font-semibold">Nieuwe uren</h2>
               <p className="mt-1 text-sm text-zinc-600">
@@ -1160,11 +1164,13 @@ export default function DashboardPage() {
               </form>
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <h2 className="text-base font-semibold">Basisrooster</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Stel je vaste weekpatroon in.
-              </p>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Basisrooster
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Stel je vaste weekpatroon in.
+                </span>
+              </summary>
               <form
                 className="mt-4 flex flex-col gap-3"
                 onSubmit={handleSaveSchedule}
@@ -1264,13 +1270,15 @@ export default function DashboardPage() {
                   ))
                 )}
               </div>
-            </div>
+            </details>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <h2 className="text-base font-semibold">Sluitingsdagen</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Geef aan wanneer het bedrijf gesloten is.
-              </p>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Sluitingsdagen
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Geef aan wanneer het bedrijf gesloten is.
+                </span>
+              </summary>
               <form
                 className="mt-4 flex flex-col gap-3"
                 onSubmit={handleAddClosure}
@@ -1361,7 +1369,7 @@ export default function DashboardPage() {
                   ))
                 )}
               </div>
-            </div>
+            </details>
           </div>
           <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
             <h2 className="text-base font-semibold">Jouw diensten</h2>
