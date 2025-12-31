@@ -1081,8 +1081,6 @@ export default function DashboardPage() {
                 ) : null}
               </form>
             </div>
-
-            </div>
             <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Contracturen
