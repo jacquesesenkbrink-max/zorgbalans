@@ -1007,7 +1007,7 @@ export default function DashboardPage() {
                 onSubmit={handleAddEntry}
               >
                 <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Datum
+                  Datum (geselecteerd)
                   <input
                     type="date"
                     className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
