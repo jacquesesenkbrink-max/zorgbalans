@@ -992,88 +992,6 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
-                Contracturen
-                <span className="ml-2 text-xs font-normal text-zinc-500">
-                  Aantal contracturen per week.
-                </span>
-              </summary>
-              <form
-                className="mt-3 flex items-end gap-2"
-                onSubmit={handleSaveContract}
-              >
-                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
-                  Uren per week
-                  <input
-                    type="number"
-                    step="0.25"
-                    min="0"
-                    max="80"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={contractHours}
-                    onChange={(event) => setContractHours(event.target.value)}
-                    disabled={profileLoading}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
-                  disabled={profileBusy || !hasSession}
-                >
-                  {profileBusy ? "Opslaan..." : "Opslaan"}
-                </button>
-              </form>
-              {profileError ? (
-                <p className="mt-2 text-xs text-rose-600">{profileError}</p>
-              ) : null}
-              {!hasSession ? (
-                <p className="mt-2 text-xs text-zinc-500">
-                  Log in om contracturen op te slaan.
-                </p>
-              ) : null}
-            </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
-                Startsaldo 1 januari
-                <span className="ml-2 text-xs font-normal text-zinc-500">
-                  Plus/min uren van vorig jaar voor {selectedYear}.
-                </span>
-              </summary>
-              <form
-                className="mt-3 flex items-end gap-2"
-                onSubmit={handleSaveCarryover}
-              >
-                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
-                  Uren
-                  <input
-                    type="number"
-                    step="0.25"
-                    min="-9999"
-                    max="9999"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={carryoverHours}
-                    onChange={(event) => setCarryoverHours(event.target.value)}
-                    disabled={carryoverLoading}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
-                  disabled={carryoverBusy || !hasSession}
-                >
-                  {carryoverBusy ? "Opslaan..." : "Opslaan"}
-                </button>
-              </form>
-              {carryoverError ? (
-                <p className="mt-2 text-xs text-rose-600">{carryoverError}</p>
-              ) : null}
-              {!hasSession ? (
-                <p className="mt-2 text-xs text-zinc-500">
-                  Log in om het startsaldo op te slaan.
-                </p>
-              ) : null}
-            </details>
             <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <h2 className="text-base font-semibold">Nieuwe uren</h2>
               <p className="mt-1 text-sm text-zinc-600">
@@ -1164,6 +1082,89 @@ export default function DashboardPage() {
               </form>
             </div>
 
+            </div>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Contracturen
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Aantal contracturen per week.
+                </span>
+              </summary>
+              <form
+                className="mt-3 flex items-end gap-2"
+                onSubmit={handleSaveContract}
+              >
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
+                  Uren per week
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    max="80"
+                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+                    value={contractHours}
+                    onChange={(event) => setContractHours(event.target.value)}
+                    disabled={profileLoading}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
+                  disabled={profileBusy || !hasSession}
+                >
+                  {profileBusy ? "Opslaan..." : "Opslaan"}
+                </button>
+              </form>
+              {profileError ? (
+                <p className="mt-2 text-xs text-rose-600">{profileError}</p>
+              ) : null}
+              {!hasSession ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Log in om contracturen op te slaan.
+                </p>
+              ) : null}
+            </details>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Startsaldo 1 januari
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Plus/min uren van vorig jaar voor {selectedYear}.
+                </span>
+              </summary>
+              <form
+                className="mt-3 flex items-end gap-2"
+                onSubmit={handleSaveCarryover}
+              >
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
+                  Uren
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="-9999"
+                    max="9999"
+                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+                    value={carryoverHours}
+                    onChange={(event) => setCarryoverHours(event.target.value)}
+                    disabled={carryoverLoading}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
+                  disabled={carryoverBusy || !hasSession}
+                >
+                  {carryoverBusy ? "Opslaan..." : "Opslaan"}
+                </button>
+              </form>
+              {carryoverError ? (
+                <p className="mt-2 text-xs text-rose-600">{carryoverError}</p>
+              ) : null}
+              {!hasSession ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Log in om het startsaldo op te slaan.
+                </p>
+              ) : null}
+            </details>
             <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Basisrooster
