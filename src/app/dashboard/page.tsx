@@ -29,6 +29,12 @@ type YearSettings = {
   carryover_hours: number;
 };
 
+type MonthTemplate = {
+  id: string;
+  name: string;
+  month_length: number;
+};
+
 type Closure = {
   id: string;
   start_date: string;
@@ -90,6 +96,18 @@ export default function DashboardPage() {
   const [carryoverLoading, setCarryoverLoading] = useState(false);
   const [carryoverError, setCarryoverError] = useState<string | null>(null);
   const [carryoverBusy, setCarryoverBusy] = useState(false);
+  const [templates, setTemplates] = useState<MonthTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState("Standaard maand");
+  const [templateMonthLength, setTemplateMonthLength] = useState(30);
+  const [templateDays, setTemplateDays] = useState<number[]>(
+    Array.from({ length: 30 }, () => 0)
+  );
+  const [templateRule, setTemplateRule] = useState<
+    "overwrite" | "skip" | "only_empty"
+  >("skip");
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const [closureStart, setClosureStart] = useState("");
   const [closureEnd, setClosureEnd] = useState("");
   const [closureReason, setClosureReason] = useState("");
@@ -356,6 +374,14 @@ export default function DashboardPage() {
     return `${year}-${month}-${day}`;
   }
 
+  function ensureTemplateDays(length: number, existing: number[]) {
+    const next = existing.slice(0, length);
+    while (next.length < length) {
+      next.push(0);
+    }
+    return next;
+  }
+
   async function loadEntries(activeUserId: string) {
     setEntriesLoading(true);
     setEntriesError(null);
@@ -379,12 +405,15 @@ export default function DashboardPage() {
       loadSchedule(userId);
       loadProfile(userId);
       loadYearSettings(userId, selectedYear);
+      loadTemplates(userId);
       loadClosures(userId);
     } else {
       setEntries([]);
       setSchedule([]);
       setContractHours("20");
       setCarryoverHours("0");
+      setTemplates([]);
+      setTemplateId(null);
       setClosures([]);
     }
   }, [userId, selectedYear]);
@@ -465,6 +494,53 @@ export default function DashboardPage() {
       setCarryoverHours(String(value));
     }
     setCarryoverLoading(false);
+  }
+
+  async function loadTemplates(activeUserId: string) {
+    setTemplateError(null);
+    const { data, error } = await supabase
+      .from("month_templates")
+      .select("id, name, month_length")
+      .eq("user_id", activeUserId)
+      .order("name", { ascending: true });
+    if (error) {
+      setTemplateError(error.message);
+      setTemplates([]);
+      return;
+    }
+    const list = (data as MonthTemplate[]) ?? [];
+    setTemplates(list);
+    if (!templateId && list.length > 0) {
+      const first = list[0];
+      setTemplateId(first.id);
+      setTemplateName(first.name);
+      setTemplateMonthLength(first.month_length);
+      await loadTemplateDays(first.id, first.month_length);
+    } else if (!templateId && list.length === 0) {
+      setTemplateName("Standaard maand");
+      setTemplateMonthLength(30);
+      setTemplateDays(Array.from({ length: 30 }, () => 0));
+    }
+  }
+
+  async function loadTemplateDays(id: string, length: number) {
+    const { data, error } = await supabase
+      .from("month_template_days")
+      .select("day_of_month, hours")
+      .eq("template_id", id)
+      .order("day_of_month", { ascending: true });
+    if (error) {
+      setTemplateError(error.message);
+      setTemplateDays(Array.from({ length }, () => 0));
+      return;
+    }
+    const days = Array.from({ length }, () => 0);
+    for (const row of data as { day_of_month: number; hours: number }[]) {
+      if (row.day_of_month >= 1 && row.day_of_month <= length) {
+        days[row.day_of_month - 1] = row.hours;
+      }
+    }
+    setTemplateDays(days);
   }
 
   async function loadClosures(activeUserId: string) {
@@ -608,6 +684,183 @@ export default function DashboardPage() {
       await loadYearSettings(userId, selectedYear);
     }
     setCarryoverBusy(false);
+  }
+
+  function handleTemplateLengthChange(value: number) {
+    setTemplateMonthLength(value);
+    setTemplateDays((current) => ensureTemplateDays(value, current));
+  }
+
+  async function handleSelectTemplate(id: string) {
+    setTemplateId(id);
+    const selected = templates.find((item) => item.id === id);
+    if (selected) {
+      setTemplateName(selected.name);
+      setTemplateMonthLength(selected.month_length);
+      await loadTemplateDays(selected.id, selected.month_length);
+    }
+  }
+
+  async function handleSaveTemplate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!userId) {
+      setTemplateError("Je bent niet ingelogd.");
+      return;
+    }
+    if (!templateName.trim()) {
+      setTemplateError("Geef het sjabloon een naam.");
+      return;
+    }
+    setTemplateBusy(true);
+    setTemplateError(null);
+    let activeId = templateId;
+    if (activeId) {
+      const { error } = await supabase
+        .from("month_templates")
+        .update({
+          name: templateName.trim(),
+          month_length: templateMonthLength,
+        })
+        .eq("id", activeId);
+      if (error) {
+        setTemplateError(error.message);
+        setTemplateBusy(false);
+        return;
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("month_templates")
+        .insert({
+          user_id: userId,
+          name: templateName.trim(),
+          month_length: templateMonthLength,
+        })
+        .select("id")
+        .single();
+      if (error) {
+        setTemplateError(error.message);
+        setTemplateBusy(false);
+        return;
+      }
+      activeId = (data as { id: string }).id;
+      setTemplateId(activeId);
+    }
+
+    const daysPayload = Array.from({ length: templateMonthLength }).map(
+      (_, index) => ({
+        template_id: activeId,
+        day_of_month: index + 1,
+        hours: Number(templateDays[index] ?? 0),
+      })
+    );
+    const { error: dayError } = await supabase
+      .from("month_template_days")
+      .upsert(daysPayload, { onConflict: "template_id,day_of_month" });
+    if (dayError) {
+      setTemplateError(dayError.message);
+      setTemplateBusy(false);
+      return;
+    }
+
+    const { error: cleanupError } = await supabase
+      .from("month_template_days")
+      .delete()
+      .eq("template_id", activeId)
+      .gt("day_of_month", templateMonthLength);
+    if (cleanupError) {
+      setTemplateError(cleanupError.message);
+      setTemplateBusy(false);
+      return;
+    }
+
+    await loadTemplates(userId);
+    setTemplateBusy(false);
+  }
+
+  async function handleGenerateYear() {
+    if (!userId) {
+      setTemplateError("Je bent niet ingelogd.");
+      return;
+    }
+    if (!templateId) {
+      setTemplateError("Kies of maak eerst een sjabloon.");
+      return;
+    }
+    setTemplateBusy(true);
+    setTemplateError(null);
+
+    const yearStart = new Date(selectedYear, 0, 1);
+    const yearEnd = new Date(selectedYear, 11, 31);
+    const entriesByDate = new Map<string, WorkEntry[]>();
+    for (const entry of entries) {
+      if (entry.work_date.startsWith(`${selectedYear}-`)) {
+        const list = entriesByDate.get(entry.work_date) ?? [];
+        list.push(entry);
+        entriesByDate.set(entry.work_date, list);
+      }
+    }
+
+    if (templateRule === "overwrite") {
+      const { error } = await supabase
+        .from("work_entries")
+        .delete()
+        .eq("user_id", userId)
+        .gte("work_date", formatLocalDate(yearStart))
+        .lte("work_date", formatLocalDate(yearEnd));
+      if (error) {
+        setTemplateError(error.message);
+        setTemplateBusy(false);
+        return;
+      }
+    }
+
+    const inserts: Array<{
+      user_id: string;
+      work_date: string;
+      hours: number;
+      status: "draft";
+    }> = [];
+    for (
+      let cursor = new Date(yearStart);
+      cursor <= yearEnd;
+      cursor.setDate(cursor.getDate() + 1)
+    ) {
+      const iso = formatLocalDate(cursor);
+      const dayOfMonth = cursor.getDate();
+      const hours = Number(templateDays[dayOfMonth - 1] ?? 0);
+      const existing = entriesByDate.get(iso) ?? [];
+      const isClosed = (closureMap.get(iso) ?? []).some(
+        (closure) => !closure.can_work
+      );
+      if (isClosed) continue;
+      if (templateRule === "overwrite") {
+        if (hours > 0) {
+          inserts.push({ user_id: userId, work_date: iso, hours, status: "draft" });
+        }
+        continue;
+      }
+      if (existing.length > 0) {
+        continue;
+      }
+      if (templateRule === "only_empty" && hours <= 0) {
+        continue;
+      }
+      if (hours > 0) {
+        inserts.push({ user_id: userId, work_date: iso, hours, status: "draft" });
+      }
+    }
+
+    if (inserts.length > 0) {
+      const { error } = await supabase.from("work_entries").insert(inserts);
+      if (error) {
+        setTemplateError(error.message);
+        setTemplateBusy(false);
+        return;
+      }
+    }
+
+    await loadEntries(userId);
+    setTemplateBusy(false);
   }
 
   async function handleDeleteEntry(entryId: string) {
@@ -1162,6 +1415,161 @@ export default function DashboardPage() {
                   Log in om het startsaldo op te slaan.
                 </p>
               ) : null}
+            </details>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Maand-sjabloon
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Vul een standaard maand en genereer concept-uren voor het jaar.
+                </span>
+              </summary>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                  Sjabloon
+                  <select
+                    className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                    value={templateId ?? ""}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (!value) {
+                        setTemplateId(null);
+                        setTemplateName("Standaard maand");
+                        setTemplateMonthLength(30);
+                        setTemplateDays(Array.from({ length: 30 }, () => 0));
+                        return;
+                      }
+                      handleSelectTemplate(value);
+                    }}
+                    disabled={!hasSession}
+                  >
+                    <option value="">Nieuw sjabloon</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="rounded-full border border-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                  onClick={() => {
+                    setTemplateId(null);
+                    setTemplateName("Standaard maand");
+                    setTemplateMonthLength(30);
+                    setTemplateDays(Array.from({ length: 30 }, () => 0));
+                  }}
+                  disabled={!hasSession}
+                >
+                  Nieuw
+                </button>
+              </div>
+              <form className="mt-3 space-y-3" onSubmit={handleSaveTemplate}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-zinc-700">
+                    Naam
+                    <input
+                      type="text"
+                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+                      value={templateName}
+                      onChange={(event) => setTemplateName(event.target.value)}
+                      required
+                      disabled={!hasSession}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-medium text-zinc-700">
+                    Maandlengte
+                    <select
+                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+                      value={templateMonthLength}
+                      onChange={(event) =>
+                        handleTemplateLengthChange(Number(event.target.value))
+                      }
+                      disabled={!hasSession}
+                    >
+                      {[28, 29, 30, 31].map((length) => (
+                        <option key={length} value={length}>
+                          {length} dagen
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-[11px]">
+                  {templateDays.map((hours, index) => (
+                    <label
+                      key={index}
+                      className="flex flex-col items-center gap-1 text-[11px] text-zinc-600"
+                    >
+                      <span className="text-[10px] text-zinc-500">{index + 1}</span>
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="24"
+                        className="w-full rounded-lg border border-zinc-200 px-2 py-1 text-[11px] focus:border-zinc-400 focus:outline-none"
+                        value={hours}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          setTemplateDays((current) => {
+                            const next = [...current];
+                            next[index] = Number.isNaN(value) ? 0 : value;
+                            return next;
+                          });
+                        }}
+                        disabled={!hasSession}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                    Overwrite
+                    <select
+                      className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                      value={templateRule}
+                      onChange={(event) =>
+                        setTemplateRule(
+                          event.target.value as "overwrite" | "skip" | "only_empty"
+                        )
+                      }
+                      disabled={!hasSession}
+                    >
+                      <option value="overwrite">Overschrijven</option>
+                      <option value="skip">Overslaan</option>
+                      <option value="only_empty">Alleen lege dagen</option>
+                    </select>
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                    disabled={templateBusy || !hasSession}
+                  >
+                    {templateBusy ? "Opslaan..." : "Sjabloon opslaan"}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300 disabled:opacity-60"
+                    onClick={handleGenerateYear}
+                    disabled={templateBusy || !hasSession}
+                  >
+                    {templateBusy ? "Bezig..." : "Vul jaar met concept-uren"}
+                  </button>
+                </div>
+                {templateRule === "overwrite" ? (
+                  <p className="text-[11px] text-rose-600">
+                    Let op: overschrijven vervangt bestaande dagen (ook definitief).
+                  </p>
+                ) : null}
+                {templateError ? (
+                  <p className="text-xs text-rose-600">{templateError}</p>
+                ) : null}
+                {!hasSession ? (
+                  <p className="text-xs text-zinc-500">
+                    Log in om sjablonen op te slaan of toe te passen.
+                  </p>
+                ) : null}
+              </form>
             </details>
             <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
