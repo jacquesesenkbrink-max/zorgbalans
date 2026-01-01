@@ -35,6 +35,16 @@ type MonthTemplate = {
   month_length: number;
 };
 
+type MonthTemplateRule = {
+  id: string;
+  template_id: string;
+  rule_type: "weekly" | "biweekly";
+  weekdays: number[];
+  hours: number;
+  interval_weeks: number;
+  starts_on: string | null;
+};
+
 type Closure = {
   id: string;
   start_date: string;
@@ -103,6 +113,12 @@ export default function DashboardPage() {
   const [templateDays, setTemplateDays] = useState<number[]>(
     Array.from({ length: 30 }, () => 0)
   );
+  const [templateRules, setTemplateRules] = useState<MonthTemplateRule[]>([]);
+  const [ruleType, setRuleType] = useState<"weekly" | "biweekly">("weekly");
+  const [ruleWeekdays, setRuleWeekdays] = useState<number[]>([0]);
+  const [ruleHours, setRuleHours] = useState("8");
+  const [ruleIntervalWeeks, setRuleIntervalWeeks] = useState("2");
+  const [ruleStartsOn, setRuleStartsOn] = useState("");
   const [templateRule, setTemplateRule] = useState<
     "overwrite" | "skip" | "only_empty"
   >("skip");
@@ -382,6 +398,33 @@ export default function DashboardPage() {
     return next;
   }
 
+  function weekdayLabel(index: number) {
+    return ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"][index] ?? "-";
+  }
+
+  function ruleMatchesDate(rule: MonthTemplateRule, date: Date) {
+    const weekday = (date.getDay() + 6) % 7;
+    if (!rule.weekdays.includes(weekday)) {
+      return false;
+    }
+    if (rule.rule_type === "weekly") {
+      return true;
+    }
+    if (!rule.starts_on) {
+      return false;
+    }
+    const start = new Date(rule.starts_on);
+    const diffDays = Math.floor(
+      (date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays < 0) {
+      return false;
+    }
+    const interval = Math.max(1, rule.interval_weeks || 2);
+    const diffWeeks = Math.floor(diffDays / 7);
+    return diffWeeks % interval === 0;
+  }
+
   async function loadEntries(activeUserId: string) {
     setEntriesLoading(true);
     setEntriesError(null);
@@ -516,10 +559,12 @@ export default function DashboardPage() {
       setTemplateName(first.name);
       setTemplateMonthLength(first.month_length);
       await loadTemplateDays(first.id, first.month_length);
+      await loadTemplateRules(first.id);
     } else if (!templateId && list.length === 0) {
       setTemplateName("Standaard maand");
       setTemplateMonthLength(30);
       setTemplateDays(Array.from({ length: 30 }, () => 0));
+      setTemplateRules([]);
     }
   }
 
@@ -541,6 +586,20 @@ export default function DashboardPage() {
       }
     }
     setTemplateDays(days);
+  }
+
+  async function loadTemplateRules(id: string) {
+    const { data, error } = await supabase
+      .from("month_template_rules")
+      .select("id, template_id, rule_type, weekdays, hours, interval_weeks, starts_on")
+      .eq("template_id", id)
+      .order("created_at", { ascending: true });
+    if (error) {
+      setTemplateError(error.message);
+      setTemplateRules([]);
+      return;
+    }
+    setTemplateRules((data as MonthTemplateRule[]) ?? []);
   }
 
   async function loadClosures(activeUserId: string) {
@@ -698,6 +757,7 @@ export default function DashboardPage() {
       setTemplateName(selected.name);
       setTemplateMonthLength(selected.month_length);
       await loadTemplateDays(selected.id, selected.month_length);
+      await loadTemplateRules(selected.id);
     }
   }
 
@@ -777,6 +837,68 @@ export default function DashboardPage() {
     setTemplateBusy(false);
   }
 
+  async function handleAddRule(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!userId) {
+      setTemplateError("Je bent niet ingelogd.");
+      return;
+    }
+    if (!templateId) {
+      setTemplateError("Sla eerst het sjabloon op.");
+      return;
+    }
+    if (ruleWeekdays.length === 0) {
+      setTemplateError("Kies minimaal 1 weekdag.");
+      return;
+    }
+    const hoursValue = Number(ruleHours);
+    if (Number.isNaN(hoursValue) || hoursValue < 0 || hoursValue > 24) {
+      setTemplateError("Vul geldige uren in.");
+      return;
+    }
+    if (ruleType === "biweekly" && !ruleStartsOn) {
+      setTemplateError("Kies een startdatum voor de 2-weken cyclus.");
+      return;
+    }
+    setTemplateBusy(true);
+    setTemplateError(null);
+    const intervalValue = Number(ruleIntervalWeeks);
+    const { error } = await supabase.from("month_template_rules").insert({
+      template_id: templateId,
+      rule_type: ruleType,
+      weekdays: ruleWeekdays,
+      hours: hoursValue,
+      interval_weeks:
+        ruleType === "biweekly"
+          ? Number.isNaN(intervalValue)
+            ? 2
+            : intervalValue
+          : 1,
+      starts_on: ruleType === "biweekly" ? ruleStartsOn : null,
+    });
+    if (error) {
+      setTemplateError(error.message);
+      setTemplateBusy(false);
+      return;
+    }
+    await loadTemplateRules(templateId);
+    setTemplateBusy(false);
+  }
+
+  async function handleDeleteRule(ruleId: string) {
+    if (!templateId) return;
+    setTemplateError(null);
+    const { error } = await supabase
+      .from("month_template_rules")
+      .delete()
+      .eq("id", ruleId);
+    if (error) {
+      setTemplateError(error.message);
+    } else {
+      await loadTemplateRules(templateId);
+    }
+  }
+
   async function handleGenerateYear() {
     if (!userId) {
       setTemplateError("Je bent niet ingelogd.");
@@ -827,7 +949,16 @@ export default function DashboardPage() {
     ) {
       const iso = formatLocalDate(cursor);
       const dayOfMonth = cursor.getDate();
-      const hours = Number(templateDays[dayOfMonth - 1] ?? 0);
+      let hours = 0;
+      for (const rule of templateRules) {
+        if (ruleMatchesDate(rule, cursor)) {
+          hours += rule.hours;
+        }
+      }
+      const templateHours = Number(templateDays[dayOfMonth - 1] ?? 0);
+      if (templateHours > 0) {
+        hours = templateHours;
+      }
       const existing = entriesByDate.get(iso) ?? [];
       const isClosed = (closureMap.get(iso) ?? []).some(
         (closure) => !closure.can_work
@@ -1570,6 +1701,139 @@ export default function DashboardPage() {
                   </p>
                 ) : null}
               </form>
+              <div className="mt-4 space-y-3">
+                <p className="text-xs font-semibold text-zinc-700">
+                  Regels (weekpatroon)
+                </p>
+                <form className="space-y-2" onSubmit={handleAddRule}>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                      Type
+                      <select
+                        className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                        value={ruleType}
+                        onChange={(event) =>
+                          setRuleType(event.target.value as "weekly" | "biweekly")
+                        }
+                        disabled={!hasSession}
+                      >
+                        <option value="weekly">Wekelijks</option>
+                        <option value="biweekly">Om de week</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                      Uren
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="24"
+                        className="w-16 bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                        value={ruleHours}
+                        onChange={(event) => setRuleHours(event.target.value)}
+                        disabled={!hasSession}
+                      />
+                    </label>
+                    {ruleType === "biweekly" ? (
+                      <>
+                        <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                          Start
+                          <input
+                            type="date"
+                            className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                            value={ruleStartsOn}
+                            onChange={(event) => setRuleStartsOn(event.target.value)}
+                            disabled={!hasSession}
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">
+                          Interval
+                          <input
+                            type="number"
+                            min="2"
+                            max="4"
+                            className="w-10 bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none"
+                            value={ruleIntervalWeeks}
+                            onChange={(event) =>
+                              setRuleIntervalWeeks(event.target.value)
+                            }
+                            disabled={!hasSession}
+                          />
+                        </label>
+                      </>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {Array.from({ length: 7 }).map((_, index) => {
+                      const isChecked = ruleWeekdays.includes(index);
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          className={`rounded-full border px-2 py-1 text-xs font-semibold ${
+                            isChecked
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-zinc-200 bg-white text-zinc-700"
+                          }`}
+                          onClick={() => {
+                            setRuleWeekdays((current) =>
+                              current.includes(index)
+                                ? current.filter((day) => day !== index)
+                                : [...current, index].sort()
+                            );
+                          }}
+                          disabled={!hasSession}
+                        >
+                          {weekdayLabel(index)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="submit"
+                    className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                    disabled={templateBusy || !hasSession}
+                  >
+                    {templateBusy ? "Opslaan..." : "Regel toevoegen"}
+                  </button>
+                </form>
+                {templateRules.length === 0 ? (
+                  <p className="text-xs text-zinc-500">Nog geen regels.</p>
+                ) : (
+                  <div className="space-y-2 text-xs text-zinc-600">
+                    {templateRules.map((rule) => (
+                      <div
+                        key={rule.id}
+                        className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2"
+                      >
+                        <div>
+                          <p className="font-semibold text-zinc-800">
+                            {rule.rule_type === "weekly"
+                              ? "Wekelijks"
+                              : "Om de week"}
+                            {" - "}
+                            {rule.weekdays.map((day) => weekdayLabel(day)).join(", ")}
+                            {" - "}
+                            {rule.hours}u
+                          </p>
+                          {rule.rule_type === "biweekly" && rule.starts_on ? (
+                            <p className="text-xs text-zinc-500">
+                              Start: {rule.starts_on} (interval {rule.interval_weeks})
+                            </p>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded-full border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:border-rose-300"
+                          onClick={() => handleDeleteRule(rule.id)}
+                        >
+                          Verwijder
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </details>
             <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">

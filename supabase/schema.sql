@@ -80,6 +80,18 @@ create table if not exists public.month_template_days (
   unique (template_id, day_of_month)
 );
 
+create table if not exists public.month_template_rules (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.month_templates (id) on delete cascade,
+  rule_type text not null check (rule_type in ('weekly', 'biweekly')),
+  weekdays smallint[] not null,
+  hours numeric(5,2) not null check (hours >= 0 and hours <= 24),
+  interval_weeks smallint not null default 1 check (interval_weeks between 1 and 4),
+  starts_on date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -118,6 +130,10 @@ create trigger set_month_template_days_updated_at
 before update on public.month_template_days
 for each row execute function public.set_updated_at();
 
+create trigger set_month_template_rules_updated_at
+before update on public.month_template_rules
+for each row execute function public.set_updated_at();
+
 alter table public.profiles enable row level security;
 alter table public.base_schedule enable row level security;
 alter table public.work_entries enable row level security;
@@ -125,6 +141,7 @@ alter table public.closures enable row level security;
 alter table public.year_settings enable row level security;
 alter table public.month_templates enable row level security;
 alter table public.month_template_days enable row level security;
+alter table public.month_template_rules enable row level security;
 
 create policy "Profiles are self managed"
   on public.profiles
@@ -164,6 +181,20 @@ create policy "Month templates are user owned"
 
 create policy "Month template days are user owned"
   on public.month_template_days
+  for all
+  using (
+    template_id in (
+      select id from public.month_templates where user_id = auth.uid()
+    )
+  )
+  with check (
+    template_id in (
+      select id from public.month_templates where user_id = auth.uid()
+    )
+  );
+
+create policy "Month template rules are user owned"
+  on public.month_template_rules
   for all
   using (
     template_id in (
