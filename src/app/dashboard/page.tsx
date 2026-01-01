@@ -131,12 +131,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const todayDate = new Date();
-    const today = formatLocalDate(todayDate);
-    setSelectedDate(today);
-    setFormDate(today);
-    setSelectedYear(todayDate.getFullYear());
-    setMonthOffset(todayDate.getMonth());
+    const startDate = new Date(2026, 0, 1);
+    const start = formatLocalDate(startDate);
+    setSelectedDate(start);
+    setFormDate(start);
+    setSelectedYear(2026);
+    setMonthOffset(0);
   }, []);
 
   const hasSession = useMemo(() => Boolean(email && userId), [email, userId]);
@@ -171,7 +171,7 @@ export default function DashboardPage() {
 
   const [monthOffset, setMonthOffset] = useState(0);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedYear, setSelectedYear] = useState(2026);
 
   const months = useMemo<MonthMeta[]>(() => {
     const list: MonthMeta[] = [];
