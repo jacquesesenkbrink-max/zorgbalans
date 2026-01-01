@@ -1741,55 +1741,57 @@ export default function DashboardPage() {
                 )}
               </div>
             </details>
-          </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-            <h2 className="text-base font-semibold">Jouw diensten</h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Concept en definitieve uren voor dit jaar.
-            </p>
-            <div className="mt-4 space-y-3">
-              {entriesLoading ? (
-                <p className="text-sm text-zinc-600">Laden...</p>
-              ) : entriesError ? (
-                <p className="text-sm text-rose-600">{entriesError}</p>
-              ) : filteredEntries.length === 0 ? (
-                <p className="text-sm text-zinc-500">
-                  Nog geen diensten toegevoegd.
-                </p>
-              ) : (
-                filteredEntries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-200 px-3 py-2 text-xs"
-                  >
-                    <div>
-                      <p className="font-semibold">{entry.work_date}</p>
-                      <p className="text-xs text-zinc-500">
-                        {entry.status === "final" ? "Definitief" : "Concept"}
-                        {entry.notes ? ` - ${entry.notes}` : ""}
-                      </p>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Jouw diensten
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Concept en definitieve uren voor dit jaar.
+                </span>
+              </summary>
+              <div className="mt-4 space-y-3">
+                {entriesLoading ? (
+                  <p className="text-sm text-zinc-600">Laden...</p>
+                ) : entriesError ? (
+                  <p className="text-sm text-rose-600">{entriesError}</p>
+                ) : filteredEntries.length === 0 ? (
+                  <p className="text-sm text-zinc-500">
+                    Nog geen diensten toegevoegd.
+                  </p>
+                ) : (
+                  filteredEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-semibold">{entry.work_date}</p>
+                        <p className="text-xs text-zinc-500">
+                          {entry.status === "final" ? "Definitief" : "Concept"}
+                          {entry.notes ? ` - ${entry.notes}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{entry.hours}u</span>
+                        <button
+                          type="button"
+                          className="rounded-full border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-700 hover:border-zinc-300"
+                          onClick={() => handleEditEntry(entry)}
+                        >
+                          Bewerk
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:border-rose-300"
+                          onClick={() => handleDeleteEntry(entry.id)}
+                        >
+                          Verwijder
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{entry.hours}u</span>
-                      <button
-                        type="button"
-                        className="rounded-full border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-700 hover:border-zinc-300"
-                        onClick={() => handleEditEntry(entry)}
-                      >
-                        Bewerk
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:border-rose-300"
-                        onClick={() => handleDeleteEntry(entry.id)}
-                      >
-                        Verwijder
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            </details>
           </div>
         </div>
       </main>
