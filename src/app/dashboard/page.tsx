@@ -131,14 +131,13 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedDate) {
-      const today = formatLocalDate(new Date());
-      setSelectedDate(today);
-      if (!formDate) {
-        setFormDate(today);
-      }
-    }
-  }, [selectedDate, formDate]);
+    const todayDate = new Date();
+    const today = formatLocalDate(todayDate);
+    setSelectedDate(today);
+    setFormDate(today);
+    setSelectedYear(todayDate.getFullYear());
+    setMonthOffset(todayDate.getMonth());
+  }, []);
 
   const hasSession = useMemo(() => Boolean(email && userId), [email, userId]);
 
@@ -968,14 +967,11 @@ export default function DashboardPage() {
                       setMonthOffset(0);
                     }}
                   >
-                    {Array.from({ length: 3 }).map((_, index) => {
-                      const yearOption = currentYear - 1 + index;
-                      return (
-                        <option key={yearOption} value={yearOption}>
-                          {yearOption}
-                        </option>
-                      );
-                    })}
+                    {[2026, 2027, 2028, 2029, 2030].map((yearOption) => (
+                      <option key={yearOption} value={yearOption}>
+                        {yearOption}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <button
