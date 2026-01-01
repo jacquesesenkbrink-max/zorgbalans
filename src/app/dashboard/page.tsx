@@ -12,14 +12,6 @@ type WorkEntry = {
   notes: string | null;
 };
 
-type BaseScheduleEntry = {
-  id: string;
-  weekday: number;
-  planned_hours: number;
-  active: boolean;
-  notes: string | null;
-};
-
 type ProfileSettings = {
   contract_hours_week: number;
 };
@@ -79,9 +71,6 @@ export default function DashboardPage() {
   const [entriesError, setEntriesError] = useState<string | null>(null);
   const [showDraft, setShowDraft] = useState(true);
   const [showFinal, setShowFinal] = useState(true);
-  const [schedule, setSchedule] = useState<BaseScheduleEntry[]>([]);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [closures, setClosures] = useState<Closure[]>([]);
   const [closuresLoading, setClosuresLoading] = useState(false);
   const [closuresError, setClosuresError] = useState<string | null>(null);
@@ -92,11 +81,6 @@ export default function DashboardPage() {
   const [formStatus, setFormStatus] = useState<"draft" | "final">("draft");
   const [formNotes, setFormNotes] = useState("");
   const [formBusy, setFormBusy] = useState(false);
-  const [scheduleWeekday, setScheduleWeekday] = useState("0");
-  const [scheduleHours, setScheduleHours] = useState("8");
-  const [scheduleActive, setScheduleActive] = useState(true);
-  const [scheduleNotes, setScheduleNotes] = useState("");
-  const [scheduleBusy, setScheduleBusy] = useState(false);
   const [contractHours, setContractHours] = useState("20");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -253,18 +237,12 @@ export default function DashboardPage() {
   const balanceSeries = useMemo<BalancePoint[]>(() => {
     const start = new Date(selectedYear, 0, 1);
     const end = new Date(selectedYear, 11, 31);
-    const scheduleByWeekday = new Map<number, BaseScheduleEntry>();
     const contractHoursValue = Number(contractHours);
     const weeklyContract = Number.isNaN(contractHoursValue)
       ? 0
       : contractHoursValue;
 
-    for (const entry of schedule) {
-      if (entry.active) {
-        scheduleByWeekday.set(entry.weekday, entry);
-      }
-    }
-    const hasSchedule = scheduleByWeekday.size > 0;
+    const hasSchedule = false;
 
     const points: BalancePoint[] = [];
     const carryoverValue = Number(carryoverHours);
@@ -282,8 +260,6 @@ export default function DashboardPage() {
         weekday < 5 ? Number((weeklyContract / 5).toFixed(2)) : 0;
       const planned = isClosed
         ? 0
-        : hasSchedule
-        ? scheduleByWeekday.get(weekday)?.planned_hours ?? 0
         : fallbackPlanned;
       const actual = entryTotals.get(iso)?.hours ?? 0;
       running = Number((running + (actual - planned)).toFixed(2));
@@ -291,7 +267,7 @@ export default function DashboardPage() {
     }
 
     return points;
-  }, [entryTotals, schedule, closureMap, contractHours, carryoverHours, selectedYear]);
+  }, [entryTotals, closureMap, contractHours, carryoverHours, selectedYear]);
 
   const todayBalance = useMemo(() => {
     const todayIso = formatLocalDate(new Date());
@@ -432,14 +408,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (userId) {
       loadEntries(userId);
-      loadSchedule(userId);
       loadProfile(userId);
       loadYearSettings(userId, selectedYear);
       loadTemplates(userId);
       loadClosures(userId);
     } else {
       setEntries([]);
-      setSchedule([]);
       setContractHours("20");
       setCarryoverHours("0");
       setTemplates([]);
@@ -448,22 +422,6 @@ export default function DashboardPage() {
     }
   }, [userId, selectedYear]);
 
-  async function loadSchedule(activeUserId: string) {
-    setScheduleLoading(true);
-    setScheduleError(null);
-    const { data, error } = await supabase
-      .from("base_schedule")
-      .select("id, weekday, planned_hours, active, notes")
-      .eq("user_id", activeUserId)
-      .order("weekday", { ascending: true });
-    if (error) {
-      setScheduleError(error.message);
-      setSchedule([]);
-    } else {
-      setSchedule((data as BaseScheduleEntry[]) ?? []);
-    }
-    setScheduleLoading(false);
-  }
 
   async function loadProfile(activeUserId: string) {
     setProfileLoading(true);
@@ -616,43 +574,6 @@ export default function DashboardPage() {
     setFormBusy(false);
   }
 
-  async function handleSaveSchedule(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!userId) {
-      setScheduleError("Je bent niet ingelogd.");
-      return;
-    }
-    setScheduleBusy(true);
-    setScheduleError(null);
-    const weekdayValue = Number(scheduleWeekday);
-    const hoursValue = Number(scheduleHours);
-    if (Number.isNaN(weekdayValue) || Number.isNaN(hoursValue)) {
-      setScheduleError("Vul een geldige weekdag en uren in.");
-      setScheduleBusy(false);
-      return;
-    }
-
-    const existing = schedule.find((entry) => entry.weekday === weekdayValue);
-    const payload = {
-      user_id: userId,
-      weekday: weekdayValue,
-      planned_hours: hoursValue,
-      active: scheduleActive,
-      notes: scheduleNotes.trim() ? scheduleNotes.trim() : null,
-    };
-
-    const { error } = existing
-      ? await supabase.from("base_schedule").update(payload).eq("id", existing.id)
-      : await supabase.from("base_schedule").insert(payload);
-
-    if (error) {
-      setScheduleError(error.message);
-    } else {
-      setScheduleNotes("");
-      await loadSchedule(userId);
-    }
-    setScheduleBusy(false);
-  }
 
   async function handleSaveContract(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1716,113 +1637,6 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
-                Basisrooster
-                <span className="ml-2 text-xs font-normal text-zinc-500">
-                  Stel je vaste weekpatroon in.
-                </span>
-              </summary>
-              <form
-                className="mt-4 flex flex-col gap-3"
-                onSubmit={handleSaveSchedule}
-              >
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Weekdag
-                  <select
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={scheduleWeekday}
-                    onChange={(event) => setScheduleWeekday(event.target.value)}
-                  >
-                    <option value="0">Maandag</option>
-                    <option value="1">Dinsdag</option>
-                    <option value="2">Woensdag</option>
-                    <option value="3">Donderdag</option>
-                    <option value="4">Vrijdag</option>
-                    <option value="5">Zaterdag</option>
-                    <option value="6">Zondag</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Geplande uren
-                  <input
-                    type="number"
-                    step="0.25"
-                    min="0"
-                    max="24"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={scheduleHours}
-                    onChange={(event) => setScheduleHours(event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
-                  <input
-                    type="checkbox"
-                    checked={scheduleActive}
-                    onChange={(event) => setScheduleActive(event.target.checked)}
-                  />
-                  Actief
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Opmerking (optioneel)
-                  <input
-                    type="text"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={scheduleNotes}
-                    onChange={(event) => setScheduleNotes(event.target.value)}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="mt-2 inline-flex items-center justify-center rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
-                  disabled={scheduleBusy || !hasSession}
-                >
-                  {scheduleBusy ? "Opslaan..." : "Basisrooster opslaan"}
-                </button>
-                {!hasSession ? (
-                  <p className="text-xs text-zinc-500">
-                    Log in om je basisrooster op te slaan.
-                  </p>
-                ) : null}
-                {scheduleError ? (
-                  <p className="text-xs text-rose-600">{scheduleError}</p>
-                ) : null}
-              </form>
-              <div className="mt-4 space-y-2 text-sm text-zinc-600">
-                {scheduleLoading ? (
-                  <p>Basisrooster laden...</p>
-                ) : schedule.length === 0 ? (
-                  <p>Nog geen basisrooster ingesteld.</p>
-                ) : (
-                  schedule.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2"
-                    >
-                      <div>
-                        <p className="font-semibold text-zinc-800">
-                          {[
-                            "Maandag",
-                            "Dinsdag",
-                            "Woensdag",
-                            "Donderdag",
-                            "Vrijdag",
-                            "Zaterdag",
-                            "Zondag",
-                          ][entry.weekday] ?? "Onbekend"}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {entry.active ? "Actief" : "Inactief"}
-                          {entry.notes ? ` - ${entry.notes}` : ""}
-                        </p>
-                      </div>
-                      <span className="font-semibold">{entry.planned_hours}u</span>
-                    </div>
-                  ))
                 )}
               </div>
             </details>
