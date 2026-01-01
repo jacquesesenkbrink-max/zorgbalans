@@ -280,9 +280,7 @@ export default function DashboardPage() {
   }, [balanceSeries]);
 
   const ytdTotals = useMemo(() => {
-    const todayIso = formatLocalDate(new Date());
-    const cutoffIso =
-      selectedYear === currentYear ? todayIso : `${selectedYear}-12-31`;
+    const cutoffIso = `${selectedYear}-12-31`;
     let planned = 0;
     let actual = 0;
     for (const point of balanceSeries) {
@@ -295,7 +293,7 @@ export default function DashboardPage() {
       actual: Number(actual.toFixed(2)),
       delta: Number((actual - planned).toFixed(2)),
     };
-  }, [balanceSeries, currentYear, selectedYear]);
+  }, [balanceSeries, selectedYear]);
 
   const selectedEntries = useMemo(() => {
     if (!selectedDate) return [];
