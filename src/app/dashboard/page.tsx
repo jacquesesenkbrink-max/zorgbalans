@@ -1227,11 +1227,13 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <h2 className="text-base font-semibold">Nieuwe uren</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Voeg een concept of definitieve dienst toe.
-              </p>
+            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
+                Nieuwe uren
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  Voeg een concept of definitieve dienst toe.
+                </span>
+              </summary>
               {editingEntryId ? (
                 <p className="mt-2 text-xs font-semibold text-amber-700">
                   Bewerken: je past een bestaande dienst aan.
@@ -1315,7 +1317,7 @@ export default function DashboardPage() {
                   </p>
                 ) : null}
               </form>
-            </div>
+            </details>
             <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Contracturen
