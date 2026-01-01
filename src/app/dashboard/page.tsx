@@ -32,7 +32,6 @@ type YearSettings = {
 type MonthTemplate = {
   id: string;
   name: string;
-  month_length: number;
 };
 
 type MonthTemplateRule = {
@@ -108,11 +107,7 @@ export default function DashboardPage() {
   const [carryoverBusy, setCarryoverBusy] = useState(false);
   const [templates, setTemplates] = useState<MonthTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string | null>(null);
-  const [templateName, setTemplateName] = useState("Standaard maand");
-  const [templateMonthLength, setTemplateMonthLength] = useState(30);
-  const [templateDays, setTemplateDays] = useState<number[]>(
-    Array.from({ length: 30 }, () => 0)
-  );
+  const [templateName, setTemplateName] = useState("Standaard regels");
   const [templateRules, setTemplateRules] = useState<MonthTemplateRule[]>([]);
   const [ruleType, setRuleType] = useState<"weekly" | "biweekly">("weekly");
   const [ruleWeekdays, setRuleWeekdays] = useState<number[]>([0]);
@@ -390,14 +385,6 @@ export default function DashboardPage() {
     return `${year}-${month}-${day}`;
   }
 
-  function ensureTemplateDays(length: number, existing: number[]) {
-    const next = existing.slice(0, length);
-    while (next.length < length) {
-      next.push(0);
-    }
-    return next;
-  }
-
   function weekdayLabel(index: number) {
     return ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"][index] ?? "-";
   }
@@ -543,7 +530,7 @@ export default function DashboardPage() {
     setTemplateError(null);
     const { data, error } = await supabase
       .from("month_templates")
-      .select("id, name, month_length")
+      .select("id, name")
       .eq("user_id", activeUserId)
       .order("name", { ascending: true });
     if (error) {
@@ -557,35 +544,11 @@ export default function DashboardPage() {
       const first = list[0];
       setTemplateId(first.id);
       setTemplateName(first.name);
-      setTemplateMonthLength(first.month_length);
-      await loadTemplateDays(first.id, first.month_length);
       await loadTemplateRules(first.id);
     } else if (!templateId && list.length === 0) {
-      setTemplateName("Standaard maand");
-      setTemplateMonthLength(30);
-      setTemplateDays(Array.from({ length: 30 }, () => 0));
+      setTemplateName("Standaard regels");
       setTemplateRules([]);
     }
-  }
-
-  async function loadTemplateDays(id: string, length: number) {
-    const { data, error } = await supabase
-      .from("month_template_days")
-      .select("day_of_month, hours")
-      .eq("template_id", id)
-      .order("day_of_month", { ascending: true });
-    if (error) {
-      setTemplateError(error.message);
-      setTemplateDays(Array.from({ length }, () => 0));
-      return;
-    }
-    const days = Array.from({ length }, () => 0);
-    for (const row of data as { day_of_month: number; hours: number }[]) {
-      if (row.day_of_month >= 1 && row.day_of_month <= length) {
-        days[row.day_of_month - 1] = row.hours;
-      }
-    }
-    setTemplateDays(days);
   }
 
   async function loadTemplateRules(id: string) {
@@ -755,8 +718,6 @@ export default function DashboardPage() {
     const selected = templates.find((item) => item.id === id);
     if (selected) {
       setTemplateName(selected.name);
-      setTemplateMonthLength(selected.month_length);
-      await loadTemplateDays(selected.id, selected.month_length);
       await loadTemplateRules(selected.id);
     }
   }
@@ -779,7 +740,6 @@ export default function DashboardPage() {
         .from("month_templates")
         .update({
           name: templateName.trim(),
-          month_length: templateMonthLength,
         })
         .eq("id", activeId);
       if (error) {
@@ -793,7 +753,6 @@ export default function DashboardPage() {
         .insert({
           user_id: userId,
           name: templateName.trim(),
-          month_length: templateMonthLength,
         })
         .select("id")
         .single();
@@ -804,33 +763,6 @@ export default function DashboardPage() {
       }
       activeId = (data as { id: string }).id;
       setTemplateId(activeId);
-    }
-
-    const daysPayload = Array.from({ length: templateMonthLength }).map(
-      (_, index) => ({
-        template_id: activeId,
-        day_of_month: index + 1,
-        hours: Number(templateDays[index] ?? 0),
-      })
-    );
-    const { error: dayError } = await supabase
-      .from("month_template_days")
-      .upsert(daysPayload, { onConflict: "template_id,day_of_month" });
-    if (dayError) {
-      setTemplateError(dayError.message);
-      setTemplateBusy(false);
-      return;
-    }
-
-    const { error: cleanupError } = await supabase
-      .from("month_template_days")
-      .delete()
-      .eq("template_id", activeId)
-      .gt("day_of_month", templateMonthLength);
-    if (cleanupError) {
-      setTemplateError(cleanupError.message);
-      setTemplateBusy(false);
-      return;
     }
 
     await loadTemplates(userId);
@@ -954,10 +886,6 @@ export default function DashboardPage() {
         if (ruleMatchesDate(rule, cursor)) {
           hours += rule.hours;
         }
-      }
-      const templateHours = Number(templateDays[dayOfMonth - 1] ?? 0);
-      if (templateHours > 0) {
-        hours = templateHours;
       }
       const existing = entriesByDate.get(iso) ?? [];
       const isClosed = (closureMap.get(iso) ?? []).some(
@@ -1564,9 +1492,8 @@ export default function DashboardPage() {
                       const value = event.target.value;
                       if (!value) {
                         setTemplateId(null);
-                        setTemplateName("Standaard maand");
-                        setTemplateMonthLength(30);
-                        setTemplateDays(Array.from({ length: 30 }, () => 0));
+                        setTemplateName("Standaard regels");
+                        setTemplateRules([]);
                         return;
                       }
                       handleSelectTemplate(value);
@@ -1586,9 +1513,8 @@ export default function DashboardPage() {
                   className="rounded-full border border-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                   onClick={() => {
                     setTemplateId(null);
-                    setTemplateName("Standaard maand");
-                    setTemplateMonthLength(30);
-                    setTemplateDays(Array.from({ length: 30 }, () => 0));
+                    setTemplateName("Standaard regels");
+                    setTemplateRules([]);
                   }}
                   disabled={!hasSession}
                 >
@@ -1608,50 +1534,6 @@ export default function DashboardPage() {
                       disabled={!hasSession}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-medium text-zinc-700">
-                    Maandlengte
-                    <select
-                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                      value={templateMonthLength}
-                      onChange={(event) =>
-                        handleTemplateLengthChange(Number(event.target.value))
-                      }
-                      disabled={!hasSession}
-                    >
-                      {[28, 29, 30, 31].map((length) => (
-                        <option key={length} value={length}>
-                          {length} dagen
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="grid grid-cols-7 gap-2 text-[11px]">
-                  {templateDays.map((hours, index) => (
-                    <label
-                      key={index}
-                      className="flex flex-col items-center gap-1 text-[11px] text-zinc-600"
-                    >
-                      <span className="text-[10px] text-zinc-500">{index + 1}</span>
-                      <input
-                        type="number"
-                        step="0.25"
-                        min="0"
-                        max="24"
-                        className="w-full rounded-lg border border-zinc-200 px-2 py-1 text-[11px] focus:border-zinc-400 focus:outline-none"
-                        value={hours}
-                        onChange={(event) => {
-                          const value = Number(event.target.value);
-                          setTemplateDays((current) => {
-                            const next = [...current];
-                            next[index] = Number.isNaN(value) ? 0 : value;
-                            return next;
-                          });
-                        }}
-                        disabled={!hasSession}
-                      />
-                    </label>
-                  ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <label className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 font-semibold text-zinc-700">

@@ -1,4 +1,4 @@
-create extension if not exists pgcrypto;
+﻿create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -69,17 +69,6 @@ create table if not exists public.month_templates (
   unique (user_id, name)
 );
 
-create table if not exists public.month_template_days (
-  id uuid primary key default gen_random_uuid(),
-  template_id uuid not null references public.month_templates (id) on delete cascade,
-  day_of_month smallint not null check (day_of_month between 1 and 31),
-  hours numeric(5,2) not null check (hours >= 0 and hours <= 24),
-  notes text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (template_id, day_of_month)
-);
-
 create table if not exists public.month_template_rules (
   id uuid primary key default gen_random_uuid(),
   template_id uuid not null references public.month_templates (id) on delete cascade,
@@ -126,10 +115,6 @@ create trigger set_month_templates_updated_at
 before update on public.month_templates
 for each row execute function public.set_updated_at();
 
-create trigger set_month_template_days_updated_at
-before update on public.month_template_days
-for each row execute function public.set_updated_at();
-
 create trigger set_month_template_rules_updated_at
 before update on public.month_template_rules
 for each row execute function public.set_updated_at();
@@ -140,7 +125,6 @@ alter table public.work_entries enable row level security;
 alter table public.closures enable row level security;
 alter table public.year_settings enable row level security;
 alter table public.month_templates enable row level security;
-alter table public.month_template_days enable row level security;
 alter table public.month_template_rules enable row level security;
 
 create policy "Profiles are self managed"
@@ -179,19 +163,6 @@ create policy "Month templates are user owned"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
-create policy "Month template days are user owned"
-  on public.month_template_days
-  for all
-  using (
-    template_id in (
-      select id from public.month_templates where user_id = auth.uid()
-    )
-  )
-  with check (
-    template_id in (
-      select id from public.month_templates where user_id = auth.uid()
-    )
-  );
 
 create policy "Month template rules are user owned"
   on public.month_template_rules
