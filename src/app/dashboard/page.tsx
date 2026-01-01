@@ -740,6 +740,7 @@ export default function DashboardPage() {
         .from("month_templates")
         .update({
           name: templateName.trim(),
+          month_length: 30,
         })
         .eq("id", activeId);
       if (error) {
@@ -753,6 +754,7 @@ export default function DashboardPage() {
         .insert({
           user_id: userId,
           name: templateName.trim(),
+          month_length: 30,
         })
         .select("id")
         .single();
