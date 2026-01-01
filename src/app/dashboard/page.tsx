@@ -1016,7 +1016,7 @@ export default function DashboardPage() {
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                  Werkelijk (YTD)
+                  Werkelijk (jaar t/m 31-12)
                 </p>
                 <p className="mt-1 text-lg font-semibold text-zinc-900">
                   {ytdTotals.actual}u
@@ -1024,7 +1024,7 @@ export default function DashboardPage() {
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                  Contract (YTD)
+                  Contract (jaar t/m 31-12)
                 </p>
                 <p className="mt-1 text-lg font-semibold text-zinc-900">
                   {ytdTotals.planned}u
@@ -1032,7 +1032,7 @@ export default function DashboardPage() {
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                  Verschil (YTD)
+                  Verschil (jaar t/m 31-12)
                 </p>
                 <p className="mt-1 text-lg font-semibold text-zinc-900">
                   {ytdTotals.delta}u
