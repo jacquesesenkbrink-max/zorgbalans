@@ -1504,17 +1504,15 @@ export default function DashboardPage() {
                       ))}
                     </select>
                   </label>
+                  <button
+                    type="button"
+                    className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                    onClick={() => setShowStats((current) => !current)}
+                    aria-expanded={showStats}
+                  >
+                    {showStats ? "Verberg statistieken" : "Toon statistieken"}
+                  </button>
                 </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <button
-                  type="button"
-                  className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
-                  onClick={() => setShowStats((current) => !current)}
-                  aria-expanded={showStats}
-                >
-                  {showStats ? "Verberg statistieken" : "Toon statistieken"}
-                </button>
               </div>
               {showStats ? (
                 <>
