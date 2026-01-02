@@ -14,6 +14,7 @@ create table if not exists public.work_entries (
   work_date date not null,
   hours numeric(5,2) not null check (hours >= 0 and hours <= 24),
   status text not null default 'draft' check (status in ('draft', 'final')),
+  shift_type text check (shift_type in ('day', 'evening', 'night', 'kto')),
   start_time time,
   end_time time,
   notes text,
@@ -36,6 +37,43 @@ create table if not exists public.closures (
   check (end_date >= start_date)
 );
 
+create table if not exists public.vacations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  start_date date not null,
+  end_date date not null,
+  name text,
+  kind text not null check (kind in ('region', 'personal')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (end_date >= start_date)
+);
+
+create table if not exists public.leave_balances (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  year smallint not null,
+  regular_hours numeric(6,2) not null default 0,
+  balance_hours numeric(6,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, year)
+);
+
+create table if not exists public.leave_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  leave_date date not null,
+  hours numeric(5,2) not null check (hours > 0 and hours <= 24),
+  leave_type text not null check (leave_type in ('regular', 'balance')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists leave_entries_user_date_idx
+  on public.leave_entries (user_id, leave_date);
+
 create table if not exists public.year_settings (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -44,28 +82,6 @@ create table if not exists public.year_settings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, year)
-);
-
-create table if not exists public.month_templates (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  name text not null,
-  month_length smallint not null default 30 check (month_length in (28, 29, 30, 31)),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (user_id, name)
-);
-
-create table if not exists public.month_template_rules (
-  id uuid primary key default gen_random_uuid(),
-  template_id uuid not null references public.month_templates (id) on delete cascade,
-  rule_type text not null check (rule_type in ('weekly', 'biweekly')),
-  weekdays smallint[] not null,
-  hours numeric(5,2) not null check (hours >= 0 and hours <= 24),
-  interval_weeks smallint not null default 1 check (interval_weeks between 1 and 4),
-  starts_on date,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
 );
 
 create or replace function public.set_updated_at()
@@ -90,24 +106,29 @@ create trigger set_closures_updated_at
 before update on public.closures
 for each row execute function public.set_updated_at();
 
+create trigger set_vacations_updated_at
+before update on public.vacations
+for each row execute function public.set_updated_at();
+
+create trigger set_leave_balances_updated_at
+before update on public.leave_balances
+for each row execute function public.set_updated_at();
+
+create trigger set_leave_entries_updated_at
+before update on public.leave_entries
+for each row execute function public.set_updated_at();
+
 create trigger set_year_settings_updated_at
 before update on public.year_settings
-for each row execute function public.set_updated_at();
-
-create trigger set_month_templates_updated_at
-before update on public.month_templates
-for each row execute function public.set_updated_at();
-
-create trigger set_month_template_rules_updated_at
-before update on public.month_template_rules
 for each row execute function public.set_updated_at();
 
 alter table public.profiles enable row level security;
 alter table public.work_entries enable row level security;
 alter table public.closures enable row level security;
+alter table public.vacations enable row level security;
+alter table public.leave_balances enable row level security;
+alter table public.leave_entries enable row level security;
 alter table public.year_settings enable row level security;
-alter table public.month_templates enable row level security;
-alter table public.month_template_rules enable row level security;
 
 create policy "Profiles are self managed"
   on public.profiles
@@ -127,29 +148,26 @@ create policy "Closures are user owned"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+create policy "Vacations are user owned"
+  on public.vacations
+  for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "Leave balances are user owned"
+  on public.leave_balances
+  for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "Leave entries are user owned"
+  on public.leave_entries
+  for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
 create policy "Year settings are user owned"
   on public.year_settings
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
-
-create policy "Month templates are user owned"
-  on public.month_templates
-  for all
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
-
-create policy "Month template rules are user owned"
-  on public.month_template_rules
-  for all
-  using (
-    template_id in (
-      select id from public.month_templates where user_id = auth.uid()
-    )
-  )
-  with check (
-    template_id in (
-      select id from public.month_templates where user_id = auth.uid()
-    )
-  );
