@@ -35,7 +35,7 @@ type Vacation = {
   start_date: string;
   end_date: string;
   name: string | null;
-  kind: "region" | "personal";
+  kind: "region" | "personal" | "unavailable";
 };
 
 type LeaveEntry = {
@@ -120,7 +120,7 @@ export default function DashboardPage() {
   const [vacationStart, setVacationStart] = useState("");
   const [vacationEnd, setVacationEnd] = useState("");
   const [vacationName, setVacationName] = useState("");
-  const [vacationKind, setVacationKind] = useState<"region" | "personal">(
+  const [vacationKind, setVacationKind] = useState<"region" | "personal" | "unavailable">(
     "region"
   );
   const [vacationBusy, setVacationBusy] = useState(false);
@@ -148,6 +148,7 @@ export default function DashboardPage() {
     | "holiday"
     | "vacation_region"
     | "vacation_personal"
+    | "vacation_unavailable"
     | "leave"
     | "closure"
     | null
@@ -353,7 +354,7 @@ export default function DashboardPage() {
 
   const vacationMap = useMemo(() => {
     if (!calendarRange) {
-      return new Map<string, Array<{ name: string; kind: "region" | "personal" }>>();
+      return new Map<string, Array<{ name: string; kind: "region" | "personal" | "unavailable" }>>();
     }
     const map = new Map<
       string,
@@ -1731,6 +1732,25 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+                    legendFocus === "vacation_unavailable"
+                      ? "border-rose-500 bg-rose-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-600"
+                  }`}
+                  onClick={() =>
+                    setLegendFocus((current) =>
+                      current === "vacation_unavailable"
+                        ? null
+                        : "vacation_unavailable"
+                    )
+                  }
+                  aria-pressed={legendFocus === "vacation_unavailable"}
+                >
+                  <span className="h-2 w-2 rounded-full bg-rose-600" />
+                  Niet beschikbaar
+                </button>
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
                     legendFocus === "leave"
                       ? "border-rose-500 bg-rose-600 text-white"
                       : "border-zinc-200 bg-white text-zinc-600"
@@ -1823,6 +1843,9 @@ export default function DashboardPage() {
                         const hasRegionVacation = vacationsForDay.some(
                           (vacation) => vacation.kind === "region"
                         );
+                        const hasUnavailableVacation = vacationsForDay.some(
+                          (vacation) => vacation.kind === "unavailable"
+                        );
                         const closuresForDay = closureMap.get(cell.iso) ?? [];
                         const matchesFocus = legendFocus
                           ? legendFocus === "holiday"
@@ -1831,6 +1854,8 @@ export default function DashboardPage() {
                             ? hasRegionVacation
                             : legendFocus === "vacation_personal"
                             ? hasPersonalVacation
+                            : legendFocus === "vacation_unavailable"
+                            ? hasUnavailableVacation
                             : legendFocus === "leave"
                             ? leaveHoursForDay > 0
                             : closuresForDay.length > 0
@@ -1866,6 +1891,9 @@ export default function DashboardPage() {
                                 ) : null}
                                 {hasPersonalVacation ? (
                                   <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
+                                ) : null}
+                                {hasUnavailableVacation ? (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
                                 ) : null}
                                 {closuresForDay.length > 0 ? (
                                   <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
@@ -1941,6 +1969,17 @@ export default function DashboardPage() {
                             Eigen vakantie:{" "}
                             {selectedVacations
                               .filter((vacation) => vacation.kind === "personal")
+                              .map((vacation) => vacation.name)
+                              .join(", ")}
+                          </p>
+                        ) : null}
+                        {selectedVacations.some(
+                          (vacation) => vacation.kind === "unavailable"
+                        ) ? (
+                          <p className="text-rose-700">
+                            Niet beschikbaar:{" "}
+                            {selectedVacations
+                              .filter((vacation) => vacation.kind === "unavailable")
                               .map((vacation) => vacation.name)
                               .join(", ")}
                           </p>
@@ -2470,6 +2509,7 @@ export default function DashboardPage() {
                   >
                     <option value="region">Vakantie (Noord)</option>
                     <option value="personal">Eigen vakantie</option>
+                    <option value="unavailable">Niet beschikbaar</option>
                   </select>
                 </label>
                 <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
@@ -2515,9 +2555,7 @@ export default function DashboardPage() {
                         </p>
                         <p className="text-xs text-zinc-500">
                           {vacation.name ? vacation.name : "Vakantie"} -{" "}
-                          {vacation.kind === "region"
-                            ? "Regio Noord"
-                            : "Eigen"}
+                          {vacation.kind === "region" ? "Regio Noord" : vacation.kind === "personal" ? "Eigen" : "Niet beschikbaar"}
                         </p>
                       </div>
                       <button
@@ -2751,3 +2789,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
