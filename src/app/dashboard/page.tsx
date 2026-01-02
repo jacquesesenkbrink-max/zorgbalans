@@ -1449,7 +1449,7 @@ export default function DashboardPage() {
               Redo
             </button>
             <a
-              href="https://je-net.nl"
+              href="https://je-net.nl/index.html"
               className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
             >
               Terug naar website
