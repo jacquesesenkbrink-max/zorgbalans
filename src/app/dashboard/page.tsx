@@ -153,6 +153,7 @@ export default function DashboardPage() {
     | null
   >(null);
   const [showBalanceChart, setShowBalanceChart] = useState(false);
+  const [showStats, setShowStats] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -1505,132 +1506,154 @@ export default function DashboardPage() {
                   </label>
                 </div>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
-                  <p className="text-xs font-semibold uppercase text-zinc-400">
-                    Cumulatief t/m geselecteerde datum
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
-                    {todayBalance}u
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
-                  <p className="text-xs font-semibold uppercase text-zinc-400">
-                    Prognose einde jaar
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
-                    {yearEndBalance}u
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
-                  <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                    Werkelijk (jaar t/m 31-12)
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-zinc-900">
-                    {ytdTotals.actual}u
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
-                  <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                    Contract (jaar t/m 31-12)
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-zinc-900">
-                    {ytdTotals.planned}u
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
-                  <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                    Verschil (jaar t/m 31-12)
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-zinc-900">
-                    {ytdTotals.delta}u
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+              <div className="mt-3 flex items-center justify-between">
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase text-zinc-400"
-                  onClick={() => setShowBalanceChart((current) => !current)}
-                  aria-expanded={showBalanceChart}
+                  className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                  onClick={() => setShowStats((current) => !current)}
+                  aria-expanded={showStats}
                 >
-                  <span>Cumulatief saldo per maand</span>
-                  <span className="text-[11px] text-zinc-500">
-                    {showBalanceChart ? "Verberg" : "Toon"}
-                  </span>
+                  {showStats ? "Verberg statistieken" : "Toon statistieken"}
                 </button>
-                {showBalanceChart ? (
-                  <div className="mt-3 h-40 w-full">
-                    {(() => {
-                      const width = 600;
-                      const height = 160;
-                      const padX = 24;
-                      const padY = 18;
-                      const values = monthlyBalancePoints.map((point) => point.value);
-                      const min = Math.min(0, ...values);
-                      const max = Math.max(0, ...values);
-                      const range = max - min || 1;
-                      const xStep =
-                        monthlyBalancePoints.length > 1
-                          ? (width - padX * 2) / (monthlyBalancePoints.length - 1)
-                          : 0;
-                      const yScale = (height - padY * 2) / range;
-                      const points = monthlyBalancePoints.map((point, index) => {
-                        const x = padX + index * xStep;
-                        const y = padY + (max - point.value) * yScale;
-                        return { x, y, value: point.value, label: point.label };
-                      });
-                      const line = points
-                        .map((point) => `${point.x},${point.y}`)
-                        .join(" ");
-                      const zeroY = padY + (max - 0) * yScale;
-                      return (
-                        <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full">
-                          <line
-                            x1={padX}
-                            x2={width - padX}
-                            y1={zeroY}
-                            y2={zeroY}
-                            stroke="#94a3b8"
-                            strokeWidth="1.5"
-                          />
-                          <polyline
-                            fill="none"
-                            stroke="#c04a7a"
-                            strokeWidth="2"
-                            points={line}
-                          />
-                          {points.map((point) => (
-                            <circle
-                              key={point.x}
-                              cx={point.x}
-                              cy={point.y}
-                              r="2.5"
-                              fill="#e46a99"
-                            >
-                              <title>{`${point.label}: ${point.value.toFixed(2)}u`}</title>
-                            </circle>
-                          ))}
-                          {points.map((point) => (
-                            <text
-                              key={`${point.x}-label`}
-                              x={point.x}
-                              y={height - 4}
-                              textAnchor="middle"
-                              fontSize="9"
-                              fill="#94a3b8"
-                            >
-                              {point.label}
-                            </text>
-                          ))}
-                        </svg>
-                      );
-                    })()}
-                  </div>
-                ) : null}
               </div>
+              {showStats ? (
+                <>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
+                      <p className="text-xs font-semibold uppercase text-zinc-400">
+                        Cumulatief t/m geselecteerde datum
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
+                        {todayBalance}u
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
+                      <p className="text-xs font-semibold uppercase text-zinc-400">
+                        Prognose einde jaar
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
+                        {yearEndBalance}u
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                        Werkelijk (jaar t/m 31-12)
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900">
+                        {ytdTotals.actual}u
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                        Contract (jaar t/m 31-12)
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900">
+                        {ytdTotals.planned}u
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                        Verschil (jaar t/m 31-12)
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900">
+                        {ytdTotals.delta}u
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase text-zinc-400"
+                      onClick={() => setShowBalanceChart((current) => !current)}
+                      aria-expanded={showBalanceChart}
+                    >
+                      <span>Cumulatief saldo per maand</span>
+                      <span className="text-[11px] text-zinc-500">
+                        {showBalanceChart ? "Verberg" : "Toon"}
+                      </span>
+                    </button>
+                    {showBalanceChart ? (
+                      <div className="mt-3 h-40 w-full">
+                        {(() => {
+                          const width = 600;
+                          const height = 160;
+                          const padX = 24;
+                          const padY = 18;
+                          const values = monthlyBalancePoints.map((point) => point.value);
+                          const min = Math.min(0, ...values);
+                          const max = Math.max(0, ...values);
+                          const range = max - min || 1;
+                          const xStep =
+                            monthlyBalancePoints.length > 1
+                              ? (width - padX * 2) /
+                                (monthlyBalancePoints.length - 1)
+                              : 0;
+                          const yScale = (height - padY * 2) / range;
+                          const points = monthlyBalancePoints.map(
+                            (point, index) => {
+                              const x = padX + index * xStep;
+                              const y = padY + (max - point.value) * yScale;
+                              return { x, y, value: point.value, label: point.label };
+                            }
+                          );
+                          const line = points
+                            .map((point) => `${point.x},${point.y}`)
+                            .join(" ");
+                          const zeroY = padY + (max - 0) * yScale;
+                          return (
+                            <svg
+                              viewBox={`0 0 ${width} ${height}`}
+                              className="h-full w-full"
+                            >
+                              <line
+                                x1={padX}
+                                x2={width - padX}
+                                y1={zeroY}
+                                y2={zeroY}
+                                stroke="#94a3b8"
+                                strokeWidth="1.5"
+                              />
+                              <polyline
+                                fill="none"
+                                stroke="#c04a7a"
+                                strokeWidth="2"
+                                points={line}
+                              />
+                              {points.map((point) => (
+                                <circle
+                                  key={point.x}
+                                  cx={point.x}
+                                  cy={point.y}
+                                  r="2.5"
+                                  fill="#e46a99"
+                                >
+                                  <title>{`${point.label}: ${point.value.toFixed(
+                                    2
+                                  )}u`}</title>
+                                </circle>
+                              ))}
+                              {points.map((point) => (
+                                <text
+                                  key={`${point.x}-label`}
+                                  x={point.x}
+                                  y={height - 4}
+                                  textAnchor="middle"
+                                  fontSize="9"
+                                  fill="#94a3b8"
+                                >
+                                  {point.label}
+                                </text>
+                              ))}
+                            </svg>
+                          );
+                        })()}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
               <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                 <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
                   <input
