@@ -228,6 +228,10 @@ export default function RapportagePage() {
     return effectOptions.filter((item) => allowed.has(item.id));
   }, [selectedAanpakId]);
 
+  const resolvedOtherClient = useMemo(() => {
+    return otherClientCode.trim() || "een andere client";
+  }, [otherClientCode]);
+
   useEffect(() => {
     let isMounted = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -260,12 +264,10 @@ export default function RapportagePage() {
       }
       return `${prefix}${trimmed}`;
     };
-    const trimmedOther = otherClientCode.trim();
     const withOther = (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return "";
-      const fallback = "een andere client";
-      const resolved = trimmedOther || fallback;
+      const resolved = resolvedOtherClient;
       if (trimmed.includes("{other}")) {
         return trimmed.replaceAll("{other}", resolved);
       }
@@ -446,20 +448,23 @@ export default function RapportagePage() {
                 onChange={(event) => setInteractionText(event.target.value)}
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                {interactionTemplates.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                    onClick={() => {
-                      setInteractionText((current) =>
-                        appendTemplate(current, item)
-                      );
-                    }}
-                  >
-                    {item}
-                  </button>
-                ))}
+                {interactionTemplates.map((item) => {
+                  const rendered = item.replaceAll("{other}", resolvedOtherClient);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                      onClick={() => {
+                        setInteractionText((current) =>
+                          appendTemplate(current, rendered)
+                        );
+                      }}
+                    >
+                      {rendered}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
