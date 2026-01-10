@@ -197,7 +197,9 @@ export default function RapportagePage() {
   const [clientCode, setClientCode] = useState("");
   const [otherClientCode, setOtherClientCode] = useState("");
   const [interactionText, setInteractionText] = useState("");
-  const [includeInteraction, setIncludeInteraction] = useState(true);
+  const [interactionContext, setInteractionContext] = useState<
+    "gedrag" | "oorzaak" | null
+  >(null);
   const [gedrag, setGedrag] = useState("");
   const [oorzaak, setOorzaak] = useState("");
   const [aanpak, setAanpak] = useState("");
@@ -309,28 +311,30 @@ export default function RapportagePage() {
       }
       return `${trimmed} met ${resolved}`;
     };
+    const interactionLine = interactionText.trim()
+      ? withClient(withOther(interactionText))
+      : "";
     const gedragBlock = [withClient(gedrag)]
       .concat(
-        includeInteraction && interactionText.trim()
-          ? [withClient(withOther(interactionText))]
+        interactionContext === "gedrag" && interactionLine
+          ? [interactionLine]
           : []
       )
       .filter(Boolean)
       .join("\n");
-    const interactionBlock =
-      includeInteraction && interactionText.trim()
-        ? withClient(withOther(interactionText))
-        : "";
+    const oorzaakBlock = [withClient(oorzaak)]
+      .concat(
+        interactionContext === "oorzaak" && interactionLine
+          ? [interactionLine]
+          : []
+      )
+      .filter(Boolean)
+      .join("\n");
     lines.push("Gedrag:");
     lines.push(gedragBlock);
     lines.push("");
-    if (interactionBlock) {
-      lines.push("Interactie:");
-      lines.push(interactionBlock);
-      lines.push("");
-    }
     lines.push("Oorzaak:");
-    lines.push(withClient(oorzaak));
+    lines.push(oorzaakBlock);
     lines.push("");
     lines.push("Aanpak:");
     lines.push(withClient(aanpak));
@@ -345,7 +349,7 @@ export default function RapportagePage() {
     gedrag,
     oorzaak,
     otherClientCode,
-    includeInteraction,
+    interactionContext,
     interactionText,
   ]);
 
@@ -366,7 +370,7 @@ export default function RapportagePage() {
     setClientCode("");
     setOtherClientCode("");
     setInteractionText("");
-    setIncludeInteraction(true);
+    setInteractionContext(null);
     setGedrag("");
     setOorzaak("");
     setAanpak("");
@@ -446,61 +450,6 @@ export default function RapportagePage() {
               />
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">Interactie</h3>
-                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-600">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-zinc-300"
-                    checked={includeInteraction}
-                    onChange={(event) => setIncludeInteraction(event.target.checked)}
-                  />
-                  Opnemen in rapportage
-                </label>
-              </div>
-              <p className="mt-1 text-sm text-zinc-600">
-                Leg kort vast als er interactie was met een andere client.
-              </p>
-              <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Andere client (afkorting)
-              </label>
-              <input
-                className="mt-2 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
-                placeholder="Bijv. MS"
-                value={otherClientCode}
-                onChange={(event) => setOtherClientCode(event.target.value)}
-              />
-              <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Interactie
-              </label>
-              <textarea
-                className="mt-2 min-h-[90px] w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
-                placeholder="Beschrijf de interactie kort..."
-                value={interactionText}
-                onChange={(event) => setInteractionText(event.target.value)}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                {interactionTemplates.map((item) => {
-                  const rendered = item.replaceAll("{other}", resolvedOtherClient);
-                  return (
-                    <button
-                      key={item}
-                      type="button"
-                      className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                      onClick={() => {
-                        setInteractionText((current) =>
-                          appendTemplate(current, rendered)
-                        );
-                      }}
-                    >
-                      {rendered}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {templateGroups.map((group) => (
               <div
                 key={group.id}
@@ -518,6 +467,26 @@ export default function RapportagePage() {
                     Wissen
                   </button>
                 </div>
+                {(group.id === "gedrag" || group.id === "oorzaak") && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-zinc-600">
+                    <button
+                      type="button"
+                      className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                      onClick={() => {
+                        const nextContext =
+                          interactionContext === group.id ? null : group.id;
+                        setInteractionContext(nextContext);
+                      }}
+                    >
+                      {interactionContext === group.id
+                        ? "Interactie verbergen"
+                        : "Interactie toevoegen"}
+                    </button>
+                    <span className="text-xs text-zinc-500">
+                      Optioneel: interactie met andere clienten.
+                    </span>
+                  </div>
+                )}
                 <textarea
                   className="mt-3 min-h-[110px] w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
                   placeholder={`${group.label} notities...`}
@@ -534,6 +503,58 @@ export default function RapportagePage() {
                     templateMap[group.id](event.target.value);
                   }}
                 />
+                {interactionContext === group.id && (
+                  <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-4">
+                    <h4 className="text-sm font-semibold text-zinc-700">
+                      {group.id === "gedrag"
+                        ? "Gedrag bij interactie met anderen"
+                        : "Oorzaak vanuit interactie met anderen"}
+                    </h4>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Leg kort vast welke rol de interactie speelde.
+                    </p>
+                    <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                      Andere client (afkorting)
+                    </label>
+                    <input
+                      className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                      placeholder="Bijv. MS"
+                      value={otherClientCode}
+                      onChange={(event) => setOtherClientCode(event.target.value)}
+                    />
+                    <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                      Interactie
+                    </label>
+                    <textarea
+                      className="mt-2 min-h-[90px] w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                      placeholder="Beschrijf de interactie kort..."
+                      value={interactionText}
+                      onChange={(event) => setInteractionText(event.target.value)}
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {interactionTemplates.map((item) => {
+                        const rendered = item.replaceAll(
+                          "{other}",
+                          resolvedOtherClient
+                        );
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                            onClick={() => {
+                              setInteractionText((current) =>
+                                appendTemplate(current, rendered)
+                              );
+                            }}
+                          >
+                            {rendered}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   Ketting-suggesties
                 </p>
