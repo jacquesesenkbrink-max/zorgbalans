@@ -272,7 +272,7 @@ export default function RapportagePage() {
       if (trimmed.toLowerCase().includes(resolved.toLowerCase())) {
         return trimmed;
       }
-      return `${trimmed} (met ${resolved})`;
+      return `${trimmed} met ${resolved}`;
     };
     const gedragBlock = [withClient(gedrag)]
       .concat(
