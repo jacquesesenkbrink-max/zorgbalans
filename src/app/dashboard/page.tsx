@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function DashboardHomePage() {
   const [email, setEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,13 +14,11 @@ export default function DashboardHomePage() {
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       setEmail(data.session?.user.email ?? null);
-      setUserId(data.session?.user.id ?? null);
       setLoading(false);
     });
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setEmail(session?.user.email ?? null);
-        setUserId(session?.user.id ?? null);
         setLoading(false);
       }
     );
@@ -50,11 +47,6 @@ export default function DashboardHomePage() {
           ) : email ? (
             <p className="text-sm text-zinc-600">
               Ingelogd als <span className="font-semibold">{email}</span>
-              {userId ? (
-                <span className="mt-1 block text-xs text-zinc-500">
-                  User ID: {userId}
-                </span>
-              ) : null}
             </p>
           ) : (
             <p className="text-sm text-zinc-600">

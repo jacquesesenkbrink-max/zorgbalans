@@ -5,188 +5,46 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+type TemplateCategory = "gedrag" | "oorzaak" | "aanpak" | "effect" | "interactie";
+
+type TemplateRow = {
+  id: string;
+  category: TemplateCategory;
+  text: string;
+  template_type: "standard" | "interaction";
+  sort_order: number;
+};
+
+type ChainRow = {
+  id: string;
+  category: "gedrag" | "oorzaak" | "aanpak" | "effect";
+  text: string;
+  next_ids: string[] | null;
+  sort_order: number;
+};
+
 type TemplateGroup = {
   id: "gedrag" | "oorzaak" | "aanpak" | "effect";
   label: string;
   items: string[];
 };
 
-type ChainOption = {
-  id: string;
-  text: string;
-  next?: string[];
+const CATEGORY_ORDER: Array<"gedrag" | "oorzaak" | "aanpak" | "effect"> = [
+  "gedrag",
+  "oorzaak",
+  "aanpak",
+  "effect",
+];
+
+const CATEGORY_LABELS: Record<
+  "gedrag" | "oorzaak" | "aanpak" | "effect",
+  string
+> = {
+  gedrag: "Gedrag",
+  oorzaak: "Oorzaak",
+  aanpak: "Aanpak",
+  effect: "Effect",
 };
-
-const templateGroups: TemplateGroup[] = [
-  {
-    id: "gedrag",
-    label: "Gedrag",
-    items: [
-      "Ik zie dat je je stem verhoogt en wegloopt uit de ruimte.",
-      "Je weigert de opdracht en gaat in discussie.",
-      "Je bent stil, teruggetrokken en maakt weinig contact.",
-      "Je loopt onrustig rond en verlaat meerdere keren de ruimte.",
-      "Je zoekt de grens op en test de afspraken.",
-    ],
-  },
-  {
-    id: "oorzaak",
-    label: "Oorzaak",
-    items: [
-      "De aanleiding lijkt een verandering in planning of verwachting.",
-      "De drukte of harde geluiden in de omgeving lijken je te prikkelen.",
-      "Onzekerheid over de taak lijkt spanning te geven.",
-      "De afwijzing van een verzoek lijkt frustratie op te roepen.",
-      "Vermoeidheid lijkt mee te spelen in je reactie.",
-    ],
-  },
-  {
-    id: "aanpak",
-    label: "Aanpak",
-    items: [
-      "Ik heb je rustig aangesproken, grenzen benoemd en je een keuze geboden.",
-      "Ik heb je een time-out aangeboden en prikkels verminderd.",
-      "Ik heb structuur gegeven met korte, duidelijke stappen.",
-      "Ik heb gecontroleerd of je de afspraak begreep en deze herhaald.",
-      "We hebben samen afgesproken wat nodig was om verder te kunnen.",
-    ],
-  },
-  {
-    id: "effect",
-    label: "Effect",
-    items: [
-      "Je kalmeerde en pakte de taak weer op.",
-      "Je bleef geagiteerd, maar de situatie is gestabiliseerd.",
-      "Je trok je terug maar bleef aanspreekbaar.",
-      "Je accepteerde de afspraak en de sfeer verbeterde.",
-      "Je had tijd nodig, daarna was weer contact mogelijk.",
-    ],
-  },
-];
-
-const interactionTemplates = [
-  "Ik zie dat je reageert op {other}.",
-  "Er ontstaat spanning in het contact met {other}.",
-  "Je zoekt contact met {other} en stemt gedrag daarop af.",
-  "Ik zie kort contact tussen jou en {other}.",
-];
-
-const gedragOptions: ChainOption[] = [
-  {
-    id: "gedrag-verhoogt-stem",
-    text: "Ik zie dat je je stem verhoogt en wegloopt uit de ruimte.",
-    next: ["oorzaak-planning", "oorzaak-prikkels", "oorzaak-frustratie"],
-  },
-  {
-    id: "gedrag-weigert-opdracht",
-    text: "Je weigert de opdracht en gaat in discussie.",
-    next: ["oorzaak-onzeker", "oorzaak-frustratie", "oorzaak-verandering"],
-  },
-  {
-    id: "gedrag-teruggetrokken",
-    text: "Je bent stil, teruggetrokken en maakt weinig contact.",
-    next: ["oorzaak-onzeker", "oorzaak-vermoeid", "oorzaak-prikkels"],
-  },
-  {
-    id: "gedrag-onrustig",
-    text: "Je loopt onrustig rond en verlaat meerdere keren de ruimte.",
-    next: ["oorzaak-prikkels", "oorzaak-verandering", "oorzaak-onzeker"],
-  },
-  {
-    id: "gedrag-grens",
-    text: "Je zoekt de grens op en test de afspraken.",
-    next: ["oorzaak-frustratie", "oorzaak-verandering", "oorzaak-onzeker"],
-  },
-];
-
-const oorzaakOptions: ChainOption[] = [
-  {
-    id: "oorzaak-planning",
-    text: "De aanleiding lijkt een verandering in planning of verwachting.",
-    next: ["aanpak-structuur", "aanpak-grenzen", "aanpak-samen-afspraak"],
-  },
-  {
-    id: "oorzaak-prikkels",
-    text: "De drukte of harde geluiden in de omgeving lijken je te prikkelen.",
-    next: ["aanpak-timeout", "aanpak-structuur", "aanpak-grenzen"],
-  },
-  {
-    id: "oorzaak-onzeker",
-    text: "Onzekerheid over de taak lijkt spanning te geven.",
-    next: ["aanpak-structuur", "aanpak-herhalen", "aanpak-samen-afspraak"],
-  },
-  {
-    id: "oorzaak-frustratie",
-    text: "De afwijzing van een verzoek lijkt frustratie op te roepen.",
-    next: ["aanpak-grenzen", "aanpak-keuze", "aanpak-timeout"],
-  },
-  {
-    id: "oorzaak-vermoeid",
-    text: "Vermoeidheid lijkt mee te spelen in je reactie.",
-    next: ["aanpak-timeout", "aanpak-structuur", "aanpak-samen-afspraak"],
-  },
-  {
-    id: "oorzaak-verandering",
-    text: "Een verandering in de situatie lijkt je te ontregelen.",
-    next: ["aanpak-structuur", "aanpak-grenzen", "aanpak-samen-afspraak"],
-  },
-];
-
-const aanpakOptions: ChainOption[] = [
-  {
-    id: "aanpak-grenzen",
-    text: "Ik heb je rustig aangesproken, grenzen benoemd en je een keuze geboden.",
-    next: ["effect-kalmeert", "effect-stabiliseert", "effect-sfeer"],
-  },
-  {
-    id: "aanpak-timeout",
-    text: "Ik heb je een time-out aangeboden en prikkels verminderd.",
-    next: ["effect-kalmeert", "effect-terugtrekken", "effect-stabiliseert"],
-  },
-  {
-    id: "aanpak-structuur",
-    text: "Ik heb structuur gegeven met korte, duidelijke stappen.",
-    next: ["effect-kalmeert", "effect-sfeer", "effect-contact"],
-  },
-  {
-    id: "aanpak-herhalen",
-    text: "Ik heb gecontroleerd of je de afspraak begreep en deze herhaald.",
-    next: ["effect-sfeer", "effect-kalmeert", "effect-contact"],
-  },
-  {
-    id: "aanpak-samen-afspraak",
-    text: "We hebben samen afgesproken wat nodig was om verder te kunnen.",
-    next: ["effect-sfeer", "effect-contact", "effect-stabiliseert"],
-  },
-  {
-    id: "aanpak-keuze",
-    text: "Ik heb je een keuze gegeven zodat je regie kon behouden.",
-    next: ["effect-kalmeert", "effect-sfeer", "effect-contact"],
-  },
-];
-
-const effectOptions: ChainOption[] = [
-  {
-    id: "effect-kalmeert",
-    text: "Je kalmeerde en pakte de taak weer op.",
-  },
-  {
-    id: "effect-stabiliseert",
-    text: "Je bleef geagiteerd, maar de situatie is gestabiliseerd.",
-  },
-  {
-    id: "effect-terugtrekken",
-    text: "Je trok je terug maar bleef aanspreekbaar.",
-  },
-  {
-    id: "effect-sfeer",
-    text: "Je accepteerde de afspraak en de sfeer verbeterde.",
-  },
-  {
-    id: "effect-contact",
-    text: "Je had tijd nodig, daarna was weer contact mogelijk.",
-  },
-];
 
 const appendTemplate = (value: string, template: string) => {
   const trimmed = value.trim();
@@ -206,6 +64,10 @@ export default function RapportagePage() {
   const [oorzaak, setOorzaak] = useState("");
   const [aanpak, setAanpak] = useState("");
   const [effect, setEffect] = useState("");
+  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [chainOptions, setChainOptions] = useState<ChainRow[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [selectedGedragId, setSelectedGedragId] = useState<string | null>(null);
   const [selectedOorzaakId, setSelectedOorzaakId] = useState<string | null>(null);
   const [selectedAanpakId, setSelectedAanpakId] = useState<string | null>(null);
@@ -213,26 +75,73 @@ export default function RapportagePage() {
   const previousOtherRef = useRef("een andere client");
   const previousClientRef = useRef("");
 
+  const chainByCategory = useMemo(() => {
+    const grouped = {
+      gedrag: [] as ChainRow[],
+      oorzaak: [] as ChainRow[],
+      aanpak: [] as ChainRow[],
+      effect: [] as ChainRow[],
+    };
+    const sorted = [...chainOptions].sort(
+      (a, b) => a.sort_order - b.sort_order
+    );
+    for (const option of sorted) {
+      grouped[option.category].push(option);
+    }
+    return grouped;
+  }, [chainOptions]);
+
   const filteredOorzaken = useMemo(() => {
-    if (!selectedGedragId) return oorzaakOptions;
-    const gedrag = gedragOptions.find((item) => item.id === selectedGedragId);
-    const allowed = new Set(gedrag?.next ?? []);
-    return oorzaakOptions.filter((item) => allowed.has(item.id));
-  }, [selectedGedragId]);
+    if (!selectedGedragId) return chainByCategory.oorzaak;
+    const gedrag = chainByCategory.gedrag.find(
+      (item) => item.id === selectedGedragId
+    );
+    const allowed = new Set(gedrag?.next_ids ?? []);
+    return chainByCategory.oorzaak.filter((item) => allowed.has(item.id));
+  }, [chainByCategory, selectedGedragId]);
 
   const filteredAanpakken = useMemo(() => {
-    if (!selectedOorzaakId) return aanpakOptions;
-    const oorzaak = oorzaakOptions.find((item) => item.id === selectedOorzaakId);
-    const allowed = new Set(oorzaak?.next ?? []);
-    return aanpakOptions.filter((item) => allowed.has(item.id));
-  }, [selectedOorzaakId]);
+    if (!selectedOorzaakId) return chainByCategory.aanpak;
+    const oorzaak = chainByCategory.oorzaak.find(
+      (item) => item.id === selectedOorzaakId
+    );
+    const allowed = new Set(oorzaak?.next_ids ?? []);
+    return chainByCategory.aanpak.filter((item) => allowed.has(item.id));
+  }, [chainByCategory, selectedOorzaakId]);
 
   const filteredEffecten = useMemo(() => {
-    if (!selectedAanpakId) return effectOptions;
-    const aanpak = aanpakOptions.find((item) => item.id === selectedAanpakId);
-    const allowed = new Set(aanpak?.next ?? []);
-    return effectOptions.filter((item) => allowed.has(item.id));
-  }, [selectedAanpakId]);
+    if (!selectedAanpakId) return chainByCategory.effect;
+    const aanpak = chainByCategory.aanpak.find(
+      (item) => item.id === selectedAanpakId
+    );
+    const allowed = new Set(aanpak?.next_ids ?? []);
+    return chainByCategory.effect.filter((item) => allowed.has(item.id));
+  }, [chainByCategory, selectedAanpakId]);
+
+  const templateGroups = useMemo<TemplateGroup[]>(() => {
+    return CATEGORY_ORDER.map((category) => {
+      const items = templates
+        .filter(
+          (template) =>
+            template.category === category &&
+            template.template_type === "standard"
+        )
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((template) => template.text);
+      return {
+        id: category,
+        label: CATEGORY_LABELS[category],
+        items,
+      };
+    });
+  }, [templates]);
+
+  const interactionTemplates = useMemo(() => {
+    return templates
+      .filter((template) => template.category === "interactie")
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((template) => template.text);
+  }, [templates]);
 
   const resolvedOtherClient = useMemo(() => {
     return otherClientCode.trim() || "een andere client";
@@ -287,6 +196,52 @@ export default function RapportagePage() {
       subscription.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!email) {
+      setTemplates([]);
+      setChainOptions([]);
+      setTemplatesLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+    const loadTemplates = async () => {
+      setTemplatesLoading(true);
+      setTemplatesError(null);
+      const [templatesResult, chainsResult] = await Promise.all([
+        supabase
+          .from("report_templates")
+          .select("id, category, text, template_type, sort_order")
+          .order("sort_order"),
+        supabase
+          .from("report_chain_options")
+          .select("id, category, text, next_ids, sort_order")
+          .order("sort_order"),
+      ]);
+      if (!isMounted) return;
+      if (templatesResult.error) {
+        setTemplatesError(templatesResult.error.message);
+      } else {
+        setTemplates((templatesResult.data ?? []) as TemplateRow[]);
+      }
+      if (chainsResult.error) {
+        setTemplatesError((current) =>
+          current
+            ? `${current} | ${chainsResult.error?.message ?? ""}`
+            : chainsResult.error?.message ?? null
+        );
+      } else {
+        setChainOptions((chainsResult.data ?? []) as ChainRow[]);
+      }
+      setTemplatesLoading(false);
+    };
+    loadTemplates();
+    return () => {
+      isMounted = false;
+    };
+  }, [email]);
 
   const reportText = useMemo(() => {
     const lines: string[] = [];
@@ -450,6 +405,15 @@ export default function RapportagePage() {
                 value={clientCode}
                 onChange={(event) => setClientCode(event.target.value)}
               />
+              {templatesLoading ? (
+                <p className="mt-3 text-xs font-semibold text-zinc-500">
+                  Sjablonen laden...
+                </p>
+              ) : templatesError ? (
+                <p className="mt-3 text-xs font-semibold text-rose-600">
+                  Sjablonen laden mislukt: {templatesError}
+                </p>
+              ) : null}
             </div>
 
             {templateGroups.map((group) => (
@@ -567,7 +531,7 @@ export default function RapportagePage() {
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(group.id === "gedrag"
-                    ? gedragOptions
+                    ? chainByCategory.gedrag
                     : group.id === "oorzaak"
                     ? filteredOorzaken
                     : group.id === "aanpak"
