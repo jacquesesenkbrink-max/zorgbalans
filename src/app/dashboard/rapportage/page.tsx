@@ -473,8 +473,13 @@ export default function RapportagePage() {
                       type="button"
                       className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                       onClick={() => {
+                        const contextId =
+                          group.id === "gedrag" || group.id === "oorzaak"
+                            ? group.id
+                            : null;
+                        if (!contextId) return;
                         const nextContext =
-                          interactionContext === group.id ? null : group.id;
+                          interactionContext === contextId ? null : contextId;
                         setInteractionContext(nextContext);
                       }}
                     >
