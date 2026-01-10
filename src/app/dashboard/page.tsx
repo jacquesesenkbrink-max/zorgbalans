@@ -1456,6 +1456,12 @@ export default function DashboardPage() {
               Terug naar website
             </a>
             <a
+              href="/dashboard/rapportage"
+              className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+            >
+              Rapportage
+            </a>
+            <a
               href="/login"
               className="text-sm font-semibold text-zinc-700 hover:text-zinc-900"
             >
