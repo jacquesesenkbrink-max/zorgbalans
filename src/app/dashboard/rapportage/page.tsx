@@ -207,6 +207,7 @@ export default function RapportagePage() {
   const [selectedAanpakId, setSelectedAanpakId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const previousOtherRef = useRef("een andere client");
+  const previousClientRef = useRef("");
 
   const filteredOorzaken = useMemo(() => {
     if (!selectedGedragId) return oorzaakOptions;
@@ -243,6 +244,26 @@ export default function RapportagePage() {
     }
     previousOtherRef.current = resolvedOtherClient;
   }, [interactionText, resolvedOtherClient]);
+
+  useEffect(() => {
+    const nextClient = clientCode.trim();
+    const previous = previousClientRef.current;
+    if (previous === nextClient) return;
+    if (!nextClient && !previous) return;
+    const updateText = (current: string) => {
+      if (!previous) return current;
+      if (!current.includes(previous)) return current;
+      const escaped = previous.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "g");
+      return current.replace(regex, nextClient);
+    };
+    setGedrag(updateText);
+    setOorzaak(updateText);
+    setAanpak(updateText);
+    setEffect(updateText);
+    setInteractionText(updateText);
+    previousClientRef.current = nextClient;
+  }, [clientCode]);
 
   useEffect(() => {
     let isMounted = true;
