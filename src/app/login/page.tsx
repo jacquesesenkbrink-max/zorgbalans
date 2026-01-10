@@ -86,9 +86,15 @@ export default function LoginPage() {
             ZorgBalans
           </p>
           <h1 className="text-3xl font-semibold">
-            {sessionEmail ? "Je bent ingelogd" : "Inloggen of registreren"}
+            {sessionEmail
+              ? "Je bent ingelogd"
+              : "Persoonlijk Zorg Dashboard"}
           </h1>
-          <p className="text-sm text-zinc-600">{helperText}</p>
+          <p className="text-sm text-zinc-600">
+            {sessionEmail
+              ? "Je persoonlijke tools voor de zorg, overzichtelijk bij elkaar."
+              : "Alle persoonlijke tools voor de zorgverlener, overzichtelijk op één plek."}
+          </p>
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
