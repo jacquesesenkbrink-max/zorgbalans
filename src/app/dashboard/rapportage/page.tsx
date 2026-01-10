@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type TemplateGroup = {
@@ -206,6 +206,7 @@ export default function RapportagePage() {
   const [selectedOorzaakId, setSelectedOorzaakId] = useState<string | null>(null);
   const [selectedAanpakId, setSelectedAanpakId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const previousOtherRef = useRef("een andere client");
 
   const filteredOorzaken = useMemo(() => {
     if (!selectedGedragId) return oorzaakOptions;
@@ -231,6 +232,17 @@ export default function RapportagePage() {
   const resolvedOtherClient = useMemo(() => {
     return otherClientCode.trim() || "een andere client";
   }, [otherClientCode]);
+
+  useEffect(() => {
+    const previous = previousOtherRef.current;
+    if (previous === resolvedOtherClient) return;
+    if (interactionText.includes(previous)) {
+      const escaped = previous.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "g");
+      setInteractionText((current) => current.replace(regex, resolvedOtherClient));
+    }
+    previousOtherRef.current = resolvedOtherClient;
+  }, [interactionText, resolvedOtherClient]);
 
   useEffect(() => {
     let isMounted = true;
