@@ -63,10 +63,10 @@ const templateGroups: TemplateGroup[] = [
 ];
 
 const interactionTemplates = [
-  "Ik zie dat je reageert op een andere client.",
-  "Er ontstaat spanning in het contact met een andere client.",
-  "Je zoekt contact met een andere client en stemt gedrag daarop af.",
-  "Ik zie kort contact tussen jou en een andere client.",
+  "Ik zie dat je reageert op {other}.",
+  "Er ontstaat spanning in het contact met {other}.",
+  "Je zoekt contact met {other} en stemt gedrag daarop af.",
+  "Ik zie kort contact tussen jou en {other}.",
 ];
 
 const gedragOptions: ChainOption[] = [
@@ -264,11 +264,15 @@ export default function RapportagePage() {
     const withOther = (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return "";
-      if (!trimmedOther) return trimmed;
-      if (trimmed.toLowerCase().includes(trimmedOther.toLowerCase())) {
+      const fallback = "een andere client";
+      const resolved = trimmedOther || fallback;
+      if (trimmed.includes("{other}")) {
+        return trimmed.replaceAll("{other}", resolved);
+      }
+      if (trimmed.toLowerCase().includes(resolved.toLowerCase())) {
         return trimmed;
       }
-      return `${trimmed} (met ${trimmedOther})`;
+      return `${trimmed} (met ${resolved})`;
     };
     const gedragBlock = [withClient(gedrag)]
       .concat(
