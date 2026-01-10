@@ -62,6 +62,13 @@ const templateGroups: TemplateGroup[] = [
   },
 ];
 
+const interactionTemplates = [
+  "Ik zie dat je reageert op een andere client.",
+  "Er ontstaat spanning in het contact met een andere client.",
+  "Je zoekt contact met een andere client en stemt gedrag daarop af.",
+  "Ik zie kort contact tussen jou en een andere client.",
+];
+
 const gedragOptions: ChainOption[] = [
   {
     id: "gedrag-verhoogt-stem",
@@ -188,6 +195,9 @@ export default function RapportagePage() {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [clientCode, setClientCode] = useState("");
+  const [otherClientCode, setOtherClientCode] = useState("");
+  const [interactionText, setInteractionText] = useState("");
+  const [includeInteraction, setIncludeInteraction] = useState(true);
   const [gedrag, setGedrag] = useState("");
   const [oorzaak, setOorzaak] = useState("");
   const [aanpak, setAanpak] = useState("");
@@ -250,9 +260,36 @@ export default function RapportagePage() {
       }
       return `${prefix}${trimmed}`;
     };
+    const trimmedOther = otherClientCode.trim();
+    const withOther = (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return "";
+      if (!trimmedOther) return trimmed;
+      if (trimmed.toLowerCase().includes(trimmedOther.toLowerCase())) {
+        return trimmed;
+      }
+      return `${trimmed} (met ${trimmedOther})`;
+    };
+    const gedragBlock = [withClient(gedrag)]
+      .concat(
+        includeInteraction && interactionText.trim()
+          ? [withClient(withOther(interactionText))]
+          : []
+      )
+      .filter(Boolean)
+      .join("\n");
+    const interactionBlock =
+      includeInteraction && interactionText.trim()
+        ? withClient(withOther(interactionText))
+        : "";
     lines.push("Gedrag:");
-    lines.push(withClient(gedrag));
+    lines.push(gedragBlock);
     lines.push("");
+    if (interactionBlock) {
+      lines.push("Interactie:");
+      lines.push(interactionBlock);
+      lines.push("");
+    }
     lines.push("Oorzaak:");
     lines.push(withClient(oorzaak));
     lines.push("");
@@ -262,7 +299,16 @@ export default function RapportagePage() {
     lines.push("Effect:");
     lines.push(withClient(effect));
     return lines.join("\n").trim();
-  }, [aanpak, clientCode, effect, gedrag, oorzaak]);
+  }, [
+    aanpak,
+    clientCode,
+    effect,
+    gedrag,
+    oorzaak,
+    otherClientCode,
+    includeInteraction,
+    interactionText,
+  ]);
 
   const handleCopy = async () => {
     if (!reportText) {
@@ -279,6 +325,9 @@ export default function RapportagePage() {
 
   const handleClear = () => {
     setClientCode("");
+    setOtherClientCode("");
+    setInteractionText("");
+    setIncludeInteraction(true);
     setGedrag("");
     setOorzaak("");
     setAanpak("");
@@ -356,6 +405,58 @@ export default function RapportagePage() {
                 value={clientCode}
                 onChange={(event) => setClientCode(event.target.value)}
               />
+            </div>
+
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">Interactie</h3>
+                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-600">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-zinc-300"
+                    checked={includeInteraction}
+                    onChange={(event) => setIncludeInteraction(event.target.checked)}
+                  />
+                  Opnemen in rapportage
+                </label>
+              </div>
+              <p className="mt-1 text-sm text-zinc-600">
+                Leg kort vast als er interactie was met een andere client.
+              </p>
+              <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                Andere client (afkorting)
+              </label>
+              <input
+                className="mt-2 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                placeholder="Bijv. MS"
+                value={otherClientCode}
+                onChange={(event) => setOtherClientCode(event.target.value)}
+              />
+              <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                Interactie
+              </label>
+              <textarea
+                className="mt-2 min-h-[90px] w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                placeholder="Beschrijf de interactie kort..."
+                value={interactionText}
+                onChange={(event) => setInteractionText(event.target.value)}
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                {interactionTemplates.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                    onClick={() => {
+                      setInteractionText((current) =>
+                        appendTemplate(current, item)
+                      );
+                    }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {templateGroups.map((group) => (
