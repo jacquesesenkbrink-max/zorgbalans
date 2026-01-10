@@ -14,44 +14,44 @@ const templateGroups: TemplateGroup[] = [
     id: "gedrag",
     label: "Gedrag",
     items: [
-      "Client verhoogt stem en loopt weg uit de ruimte.",
-      "Client weigert opdracht en gaat in discussie.",
-      "Client is stil, teruggetrokken en maakt weinig contact.",
-      "Client loopt onrustig rond en verlaat meerdere keren de ruimte.",
-      "Client zoekt grens op en test afspraken.",
+      "Ik zie dat je je stem verhoogt en wegloopt uit de ruimte.",
+      "Je weigert de opdracht en gaat in discussie.",
+      "Je bent stil, teruggetrokken en maakt weinig contact.",
+      "Je loopt onrustig rond en verlaat meerdere keren de ruimte.",
+      "Je zoekt de grens op en test de afspraken.",
     ],
   },
   {
     id: "oorzaak",
     label: "Oorzaak",
     items: [
-      "Aanleiding is een verandering in planning of verwachting.",
-      "Trigger was drukte of harde geluiden in de omgeving.",
-      "Onzekerheid over de taak leidde tot spanning.",
-      "Afwijzing van een verzoek riep frustratie op.",
-      "Vermoeidheid speelde mee in de reactie.",
+      "De aanleiding lijkt een verandering in planning of verwachting.",
+      "De drukte of harde geluiden in de omgeving lijken je te prikkelen.",
+      "Onzekerheid over de taak lijkt spanning te geven.",
+      "De afwijzing van een verzoek lijkt frustratie op te roepen.",
+      "Vermoeidheid lijkt mee te spelen in je reactie.",
     ],
   },
   {
     id: "aanpak",
     label: "Aanpak",
     items: [
-      "Rustig aangesproken, grenzen benoemd en keuze geboden.",
-      "Time-out aangeboden en prikkels verminderd.",
-      "Structuur gegeven met korte, duidelijke stappen.",
-      "Gecontroleerd of client de afspraak begreep en herhaald.",
-      "Samen afgesproken wat nodig was om verder te kunnen.",
+      "Ik heb je rustig aangesproken, grenzen benoemd en je een keuze geboden.",
+      "Ik heb je een time-out aangeboden en prikkels verminderd.",
+      "Ik heb structuur gegeven met korte, duidelijke stappen.",
+      "Ik heb gecontroleerd of je de afspraak begreep en deze herhaald.",
+      "We hebben samen afgesproken wat nodig was om verder te kunnen.",
     ],
   },
   {
     id: "effect",
     label: "Effect",
     items: [
-      "Client kalmeerde en pakte de taak weer op.",
-      "Client bleef geagiteerd, situatie gestabiliseerd.",
-      "Client trok zich terug maar bleef aanspreekbaar.",
-      "Client accepteerde de afspraak en de sfeer verbeterde.",
-      "Client had tijd nodig, daarna weer contact mogelijk.",
+      "Je kalmeerde en pakte de taak weer op.",
+      "Je bleef geagiteerd, maar de situatie is gestabiliseerd.",
+      "Je trok je terug maar bleef aanspreekbaar.",
+      "Je accepteerde de afspraak en de sfeer verbeterde.",
+      "Je had tijd nodig, daarna was weer contact mogelijk.",
     ],
   },
 ];
@@ -93,21 +93,27 @@ export default function RapportagePage() {
   const reportText = useMemo(() => {
     const lines: string[] = [];
     const trimmedClient = clientCode.trim();
-    if (trimmedClient) {
-      lines.push(`Client: ${trimmedClient}`);
-      lines.push("");
-    }
+    const prefix = trimmedClient ? `${trimmedClient}, ` : "";
+    const withClient = (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return "";
+      if (!prefix) return trimmed;
+      if (trimmed.toLowerCase().startsWith(trimmedClient.toLowerCase())) {
+        return trimmed;
+      }
+      return `${prefix}${trimmed}`;
+    };
     lines.push("Gedrag:");
-    lines.push(gedrag.trim());
+    lines.push(withClient(gedrag));
     lines.push("");
     lines.push("Oorzaak:");
-    lines.push(oorzaak.trim());
+    lines.push(withClient(oorzaak));
     lines.push("");
     lines.push("Aanpak:");
-    lines.push(aanpak.trim());
+    lines.push(withClient(aanpak));
     lines.push("");
     lines.push("Effect:");
-    lines.push(effect.trim());
+    lines.push(withClient(effect));
     return lines.join("\n").trim();
   }, [aanpak, clientCode, effect, gedrag, oorzaak]);
 
@@ -189,7 +195,7 @@ export default function RapportagePage() {
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
               <h2 className="text-base font-semibold">Rapportage invoer</h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Gebruik sjablonen om snel te starten en voeg eigen nuance toe.
+                Gebruik sjablonen die gericht zijn aan de client en voeg nuance toe.
               </p>
               <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Client (afkorting)
