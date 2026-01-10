@@ -9,6 +9,12 @@ type TemplateGroup = {
   items: string[];
 };
 
+type ChainOption = {
+  id: string;
+  text: string;
+  next?: string[];
+};
+
 const templateGroups: TemplateGroup[] = [
   {
     id: "gedrag",
@@ -56,6 +62,123 @@ const templateGroups: TemplateGroup[] = [
   },
 ];
 
+const gedragOptions: ChainOption[] = [
+  {
+    id: "gedrag-verhoogt-stem",
+    text: "Ik zie dat je je stem verhoogt en wegloopt uit de ruimte.",
+    next: ["oorzaak-planning", "oorzaak-prikkels", "oorzaak-frustratie"],
+  },
+  {
+    id: "gedrag-weigert-opdracht",
+    text: "Je weigert de opdracht en gaat in discussie.",
+    next: ["oorzaak-onzeker", "oorzaak-frustratie", "oorzaak-verandering"],
+  },
+  {
+    id: "gedrag-teruggetrokken",
+    text: "Je bent stil, teruggetrokken en maakt weinig contact.",
+    next: ["oorzaak-onzeker", "oorzaak-vermoeid", "oorzaak-prikkels"],
+  },
+  {
+    id: "gedrag-onrustig",
+    text: "Je loopt onrustig rond en verlaat meerdere keren de ruimte.",
+    next: ["oorzaak-prikkels", "oorzaak-verandering", "oorzaak-onzeker"],
+  },
+  {
+    id: "gedrag-grens",
+    text: "Je zoekt de grens op en test de afspraken.",
+    next: ["oorzaak-frustratie", "oorzaak-verandering", "oorzaak-onzeker"],
+  },
+];
+
+const oorzaakOptions: ChainOption[] = [
+  {
+    id: "oorzaak-planning",
+    text: "De aanleiding lijkt een verandering in planning of verwachting.",
+    next: ["aanpak-structuur", "aanpak-grenzen", "aanpak-samen-afspraak"],
+  },
+  {
+    id: "oorzaak-prikkels",
+    text: "De drukte of harde geluiden in de omgeving lijken je te prikkelen.",
+    next: ["aanpak-timeout", "aanpak-structuur", "aanpak-grenzen"],
+  },
+  {
+    id: "oorzaak-onzeker",
+    text: "Onzekerheid over de taak lijkt spanning te geven.",
+    next: ["aanpak-structuur", "aanpak-herhalen", "aanpak-samen-afspraak"],
+  },
+  {
+    id: "oorzaak-frustratie",
+    text: "De afwijzing van een verzoek lijkt frustratie op te roepen.",
+    next: ["aanpak-grenzen", "aanpak-keuze", "aanpak-timeout"],
+  },
+  {
+    id: "oorzaak-vermoeid",
+    text: "Vermoeidheid lijkt mee te spelen in je reactie.",
+    next: ["aanpak-timeout", "aanpak-structuur", "aanpak-samen-afspraak"],
+  },
+  {
+    id: "oorzaak-verandering",
+    text: "Een verandering in de situatie lijkt je te ontregelen.",
+    next: ["aanpak-structuur", "aanpak-grenzen", "aanpak-samen-afspraak"],
+  },
+];
+
+const aanpakOptions: ChainOption[] = [
+  {
+    id: "aanpak-grenzen",
+    text: "Ik heb je rustig aangesproken, grenzen benoemd en je een keuze geboden.",
+    next: ["effect-kalmeert", "effect-stabiliseert", "effect-sfeer"],
+  },
+  {
+    id: "aanpak-timeout",
+    text: "Ik heb je een time-out aangeboden en prikkels verminderd.",
+    next: ["effect-kalmeert", "effect-terugtrekken", "effect-stabiliseert"],
+  },
+  {
+    id: "aanpak-structuur",
+    text: "Ik heb structuur gegeven met korte, duidelijke stappen.",
+    next: ["effect-kalmeert", "effect-sfeer", "effect-contact"],
+  },
+  {
+    id: "aanpak-herhalen",
+    text: "Ik heb gecontroleerd of je de afspraak begreep en deze herhaald.",
+    next: ["effect-sfeer", "effect-kalmeert", "effect-contact"],
+  },
+  {
+    id: "aanpak-samen-afspraak",
+    text: "We hebben samen afgesproken wat nodig was om verder te kunnen.",
+    next: ["effect-sfeer", "effect-contact", "effect-stabiliseert"],
+  },
+  {
+    id: "aanpak-keuze",
+    text: "Ik heb je een keuze gegeven zodat je regie kon behouden.",
+    next: ["effect-kalmeert", "effect-sfeer", "effect-contact"],
+  },
+];
+
+const effectOptions: ChainOption[] = [
+  {
+    id: "effect-kalmeert",
+    text: "Je kalmeerde en pakte de taak weer op.",
+  },
+  {
+    id: "effect-stabiliseert",
+    text: "Je bleef geagiteerd, maar de situatie is gestabiliseerd.",
+  },
+  {
+    id: "effect-terugtrekken",
+    text: "Je trok je terug maar bleef aanspreekbaar.",
+  },
+  {
+    id: "effect-sfeer",
+    text: "Je accepteerde de afspraak en de sfeer verbeterde.",
+  },
+  {
+    id: "effect-contact",
+    text: "Je had tijd nodig, daarna was weer contact mogelijk.",
+  },
+];
+
 const appendTemplate = (value: string, template: string) => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? `${trimmed}\n${template}` : template;
@@ -69,7 +192,31 @@ export default function RapportagePage() {
   const [oorzaak, setOorzaak] = useState("");
   const [aanpak, setAanpak] = useState("");
   const [effect, setEffect] = useState("");
+  const [selectedGedragId, setSelectedGedragId] = useState<string | null>(null);
+  const [selectedOorzaakId, setSelectedOorzaakId] = useState<string | null>(null);
+  const [selectedAanpakId, setSelectedAanpakId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  const filteredOorzaken = useMemo(() => {
+    if (!selectedGedragId) return oorzaakOptions;
+    const gedrag = gedragOptions.find((item) => item.id === selectedGedragId);
+    const allowed = new Set(gedrag?.next ?? []);
+    return oorzaakOptions.filter((item) => allowed.has(item.id));
+  }, [selectedGedragId]);
+
+  const filteredAanpakken = useMemo(() => {
+    if (!selectedOorzaakId) return aanpakOptions;
+    const oorzaak = oorzaakOptions.find((item) => item.id === selectedOorzaakId);
+    const allowed = new Set(oorzaak?.next ?? []);
+    return aanpakOptions.filter((item) => allowed.has(item.id));
+  }, [selectedOorzaakId]);
+
+  const filteredEffecten = useMemo(() => {
+    if (!selectedAanpakId) return effectOptions;
+    const aanpak = aanpakOptions.find((item) => item.id === selectedAanpakId);
+    const allowed = new Set(aanpak?.next ?? []);
+    return effectOptions.filter((item) => allowed.has(item.id));
+  }, [selectedAanpakId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -136,6 +283,9 @@ export default function RapportagePage() {
     setOorzaak("");
     setAanpak("");
     setEffect("");
+    setSelectedGedragId(null);
+    setSelectedOorzaakId(null);
+    setSelectedAanpakId(null);
     setCopyStatus(null);
   };
 
@@ -241,6 +391,68 @@ export default function RapportagePage() {
                     templateMap[group.id](event.target.value);
                   }}
                 />
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                  Ketting-suggesties
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(group.id === "gedrag"
+                    ? gedragOptions
+                    : group.id === "oorzaak"
+                    ? filteredOorzaken
+                    : group.id === "aanpak"
+                    ? filteredAanpakken
+                    : filteredEffecten
+                  ).map((item) => {
+                    const isSelected =
+                      (group.id === "gedrag" && item.id === selectedGedragId) ||
+                      (group.id === "oorzaak" &&
+                        item.id === selectedOorzaakId) ||
+                      (group.id === "aanpak" &&
+                        item.id === selectedAanpakId);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                          isSelected
+                            ? "border-zinc-900 bg-zinc-900 text-white"
+                            : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
+                        }`}
+                        onClick={() => {
+                          if (group.id === "gedrag") {
+                            setSelectedGedragId(item.id);
+                            setSelectedOorzaakId(null);
+                            setSelectedAanpakId(null);
+                            setGedrag((current) =>
+                              appendTemplate(current, item.text)
+                            );
+                            return;
+                          }
+                          if (group.id === "oorzaak") {
+                            setSelectedOorzaakId(item.id);
+                            setSelectedAanpakId(null);
+                            setOorzaak((current) =>
+                              appendTemplate(current, item.text)
+                            );
+                            return;
+                          }
+                          if (group.id === "aanpak") {
+                            setSelectedAanpakId(item.id);
+                            setAanpak((current) =>
+                              appendTemplate(current, item.text)
+                            );
+                            return;
+                          }
+                          setEffect((current) =>
+                            appendTemplate(current, item.text)
+                          );
+                        }}
+                      >
+                        {item.text}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {group.items.map((item) => (
                     <button
