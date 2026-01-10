@@ -363,6 +363,12 @@ export default function RapportagePage() {
               Terug naar dashboard
             </a>
             <a
+              href="/dashboard/rapportage/admin"
+              className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+            >
+              Sjablonen beheren
+            </a>
+            <a
               href="/login"
               className="text-sm font-semibold text-zinc-700 hover:text-zinc-900"
             >
