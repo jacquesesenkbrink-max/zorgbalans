@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Holidays from "date-holidays";
@@ -2801,4 +2803,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
 
