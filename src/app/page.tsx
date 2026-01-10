@@ -21,12 +21,6 @@
           >
             Inloggen of registreren
           </a>
-          <a
-            className="inline-flex items-center justify-center rounded-full border border-zinc-200 px-6 py-3 text-sm font-semibold text-zinc-700 transition hover:border-zinc-300"
-            href="/dashboard"
-          >
-            Naar het dashboard
-          </a>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
