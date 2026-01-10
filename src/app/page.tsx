@@ -1,4 +1,4 @@
-export default function Home() {
+ï»¿export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-16">
@@ -10,7 +10,7 @@ export default function Home() {
             Persoonlijk Zorg Dashboard voor je dagelijkse werk.
           </h1>
           <p className="max-w-2xl text-lg text-zinc-600">
-            Alle persoonlijke tools voor de zorgverlener samen in één overzicht,
+            Alle persoonlijke tools voor de zorgverlener samen in een overzicht,
             van jaarplanning tot rapportages.
           </p>
         </div>
@@ -42,9 +42,9 @@ export default function Home() {
             </p>
           </div>
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold">Alles op één plek</h2>
+            <h2 className="text-base font-semibold">Alles op een plek</h2>
             <p className="mt-2 text-sm text-zinc-600">
-              Eén dashboard voor planning, rapportage en overzicht.
+              Een dashboard voor planning, rapportage en overzicht.
             </p>
           </div>
         </div>
