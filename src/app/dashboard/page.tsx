@@ -358,7 +358,7 @@ export default function DashboardPage() {
     }
     const map = new Map<
       string,
-      Array<{ name: string; kind: "region" | "personal" }>
+      Array<{ name: string; kind: "region" | "personal" | "unavailable" }>
     >();
     for (const vacation of vacations) {
       const start = new Date(vacation.start_date);
