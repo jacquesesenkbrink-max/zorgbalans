@@ -594,21 +594,8 @@ export default function RapportagePage() {
                     );
                   })}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {group.items.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                      onClick={() => {
-                        templateMap[group.id]((current) =>
-                          appendTemplate(current, item)
-                        );
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                <div className="mt-3 text-xs text-zinc-500">
+                  Tip: gebruik de ketting-suggesties hierboven voor snelle invoer.
                 </div>
               </div>
             ))}
