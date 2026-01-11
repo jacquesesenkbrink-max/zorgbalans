@@ -245,16 +245,8 @@ export default function RapportagePage() {
 
   const reportText = useMemo(() => {
     const lines: string[] = [];
-    const trimmedClient = clientCode.trim();
-    const prefix = trimmedClient ? `${trimmedClient}, ` : "";
     const withClient = (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return "";
-      if (!prefix) return trimmed;
-      if (trimmed.toLowerCase().startsWith(trimmedClient.toLowerCase())) {
-        return trimmed;
-      }
-      return `${prefix}${trimmed}`;
+      return text.trim();
     };
     const withOther = (text: string) => {
       const trimmed = text.trim();
