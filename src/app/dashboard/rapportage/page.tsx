@@ -48,7 +48,7 @@ const CATEGORY_LABELS: Record<
 
 const appendTemplate = (value: string, template: string) => {
   const trimmed = value.trim();
-  return trimmed.length > 0 ? `${trimmed}\n${template}` : template;
+  return trimmed.length > 0 ? `${trimmed} ${template}` : template;
 };
 
 export default function RapportagePage() {
@@ -269,16 +269,18 @@ export default function RapportagePage() {
           ? [interactionLine]
           : []
       )
+      .map((item) => item.trim())
       .filter(Boolean)
-      .join("\n");
+      .join(" ");
     const oorzaakBlock = [withClient(oorzaak)]
       .concat(
         interactionContext === "oorzaak" && interactionLine
           ? [interactionLine]
           : []
       )
+      .map((item) => item.trim())
       .filter(Boolean)
-      .join("\n");
+      .join(" ");
     lines.push("Gedrag:");
     lines.push(gedragBlock);
     lines.push("");
