@@ -590,14 +590,55 @@ export default function DashboardPage() {
     });
   }, [selectedDate]);
 
+  const mobileDateAction = useMemo(() => {
+    switch (activePanel) {
+      case "entries":
+        return {
+          label: "Werkuren",
+          title: "Werkuren beheren",
+          prompt: "Selecteer een datum in de kalender.",
+        };
+      case "leave":
+        return {
+          label: "Verlof opnemen",
+          title: "Verlof opnemen",
+          prompt: "Selecteer een datum voor het verlof.",
+        };
+      case "vacations":
+        return {
+          label: "Vakanties",
+          title: "Vakantie invoeren",
+          prompt: "Selecteer een startdatum in de kalender.",
+        };
+      case "closures":
+        return {
+          label: "Sluitingsdagen",
+          title: "Sluitingsdag invoeren",
+          prompt: "Selecteer een startdatum in de kalender.",
+        };
+      default:
+        return null;
+    }
+  }, [activePanel]);
+
   useEffect(() => {
     if (!selectedDate) return;
-    setLeaveDate(selectedDate);
-    const planned = plannedByDate.get(selectedDate);
-    if (planned !== undefined) {
-      setLeaveHours(String(planned));
+    if (activePanel === "leave") {
+      setLeaveDate(selectedDate);
+      const planned = plannedByDate.get(selectedDate);
+      if (planned !== undefined) {
+        setLeaveHours(String(planned));
+      }
     }
-  }, [plannedByDate, selectedDate]);
+    if (activePanel === "vacations") {
+      setVacationStart(selectedDate);
+      setVacationEnd(selectedDate);
+    }
+    if (activePanel === "closures") {
+      setClosureStart(selectedDate);
+      setClosureEnd(selectedDate);
+    }
+  }, [activePanel, plannedByDate, selectedDate]);
 
   useEffect(() => {
     setSelectedEntryIds((current) =>
@@ -1201,6 +1242,7 @@ export default function DashboardPage() {
       });
       setClosureReason("");
       setClosureCanWork(false);
+      setShowMobileEntrySheet(false);
       await loadClosures(userId);
     }
     setClosureBusy(false);
@@ -1366,6 +1408,7 @@ export default function DashboardPage() {
           await loadLeaveEntries(userId);
         },
       });
+      setShowMobileEntrySheet(false);
       await loadEntries(userId);
       await loadLeaveEntries(userId);
     }
@@ -1443,6 +1486,7 @@ export default function DashboardPage() {
         },
       });
       setVacationName("");
+      setShowMobileEntrySheet(false);
       await loadVacations(userId);
     }
     setVacationBusy(false);
@@ -1894,6 +1938,302 @@ export default function DashboardPage() {
     </>
   );
 
+  const leaveManagerContent = (
+    <>
+      <form className="mt-4 flex flex-col gap-3" onSubmit={handleAddLeaveEntry}>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Datum (geselecteerd)
+          <input
+            type="date"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={leaveDate}
+            onChange={(event) => setLeaveDate(event.target.value)}
+            required
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Uren
+          <input
+            type="number"
+            step="0.25"
+            min="0"
+            max="24"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={leaveHours}
+            onChange={(event) => setLeaveHours(event.target.value)}
+            required
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Verlofsoort
+          <select
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={leaveType}
+            onChange={(event) =>
+              setLeaveType(event.target.value as "regular" | "balance")
+            }
+          >
+            <option value="regular">Gewoon verlof</option>
+            <option value="balance">Balans verlof</option>
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="mt-2 inline-flex items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-60"
+          disabled={leaveBusy || !hasSession}
+        >
+          {leaveBusy ? "Opslaan..." : "Verlof toevoegen"}
+        </button>
+        {!hasSession ? (
+          <p className="text-xs text-zinc-500">Log in om verlof op te slaan.</p>
+        ) : null}
+        {leaveError ? <p className="text-xs text-rose-600">{leaveError}</p> : null}
+      </form>
+      <div className="mt-4 space-y-2 text-sm text-zinc-600">
+        {leaveLoading ? (
+          <p>Verlof laden...</p>
+        ) : leaveEntries.length === 0 ? (
+          <p>Nog geen verlof ingevoerd.</p>
+        ) : (
+          leaveEntries
+            .filter((entry) => entry.leave_date.startsWith(`${selectedYear}-`))
+            .map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2"
+              >
+                <div>
+                  <p className="font-semibold text-zinc-800">
+                    {entry.leave_date} - {entry.hours}u
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {entry.leave_type === "regular"
+                      ? "Gewoon verlof"
+                      : "Balans verlof"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:border-rose-300"
+                  onClick={() => handleDeleteLeaveEntry(entry.id)}
+                >
+                  Verwijder
+                </button>
+              </div>
+            ))
+        )}
+      </div>
+    </>
+  );
+
+  const vacationManagerContent = (
+    <>
+      <form className="mt-4 flex flex-col gap-3" onSubmit={handleAddVacation}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+            Startdatum
+            <input
+              type="date"
+              className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+              value={vacationStart}
+              onChange={(event) => setVacationStart(event.target.value)}
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+            Einddatum
+            <input
+              type="date"
+              className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+              value={vacationEnd}
+              onChange={(event) => setVacationEnd(event.target.value)}
+              required
+            />
+          </label>
+        </div>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Type
+          <select
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={vacationKind}
+            onChange={(event) =>
+              setVacationKind(
+                event.target.value as "region" | "personal" | "unavailable"
+              )
+            }
+          >
+            <option value="region">Vakantie (Noord)</option>
+            <option value="personal">Eigen vakantie</option>
+            <option value="unavailable">Niet beschikbaar</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Naam (optioneel)
+          <input
+            type="text"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={vacationName}
+            onChange={(event) => setVacationName(event.target.value)}
+            placeholder="Bijv. Meivakantie"
+          />
+        </label>
+        <button
+          type="submit"
+          className="mt-2 inline-flex items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-60"
+          disabled={vacationBusy || !hasSession}
+        >
+          {vacationBusy ? "Opslaan..." : "Vakantie opslaan"}
+        </button>
+        {!hasSession ? (
+          <p className="text-xs text-zinc-500">Log in om vakanties op te slaan.</p>
+        ) : null}
+        {vacationsError ? (
+          <p className="text-xs text-rose-600">{vacationsError}</p>
+        ) : null}
+      </form>
+      <div className="mt-4 space-y-2 text-sm text-zinc-600">
+        {vacationsLoading ? (
+          <p>Vakanties laden...</p>
+        ) : vacations.length === 0 ? (
+          <p>Nog geen vakanties ingesteld.</p>
+        ) : (
+          vacations.map((vacation) => (
+            <div
+              key={vacation.id}
+              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2"
+            >
+              <div>
+                <p className="font-semibold text-zinc-800">
+                  {vacation.start_date} t/m {vacation.end_date}
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {vacation.name ? vacation.name : "Vakantie"} -{" "}
+                  {vacation.kind === "region"
+                    ? "Regio Noord"
+                    : vacation.kind === "personal"
+                    ? "Eigen"
+                    : "Niet beschikbaar"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:border-rose-300"
+                onClick={() => handleDeleteVacation(vacation.id)}
+              >
+                Verwijder
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+
+  const closureManagerContent = (
+    <>
+      <form className="mt-4 flex flex-col gap-3" onSubmit={handleAddClosure}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+            Startdatum
+            <input
+              type="date"
+              className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+              value={closureStart}
+              onChange={(event) => setClosureStart(event.target.value)}
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+            Einddatum
+            <input
+              type="date"
+              className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+              value={closureEnd}
+              onChange={(event) => setClosureEnd(event.target.value)}
+              required
+            />
+          </label>
+        </div>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Reden (optioneel)
+          <input
+            type="text"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={closureReason}
+            onChange={(event) => setClosureReason(event.target.value)}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+          <input
+            type="checkbox"
+            checked={closureCanWork}
+            onChange={(event) => setClosureCanWork(event.target.checked)}
+          />
+          Ik kan eventueel werken als inval
+        </label>
+        <button
+          type="submit"
+          className="mt-2 inline-flex items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-60"
+          disabled={closureBusy || !hasSession}
+        >
+          {closureBusy ? "Opslaan..." : "Sluiting opslaan"}
+        </button>
+        {!hasSession ? (
+          <p className="text-xs text-zinc-500">Log in om sluitingen op te slaan.</p>
+        ) : null}
+        {closuresError ? (
+          <p className="text-xs text-rose-600">{closuresError}</p>
+        ) : null}
+      </form>
+      <div className="mt-4 space-y-2 text-sm text-zinc-600">
+        {closuresLoading ? (
+          <p>Sluitingsdagen laden...</p>
+        ) : closures.length === 0 ? (
+          <p>Nog geen sluitingsdagen ingesteld.</p>
+        ) : (
+          closures.map((closure) => (
+            <div
+              key={closure.id}
+              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2"
+            >
+              <div>
+                <p className="font-semibold text-zinc-800">
+                  {closure.start_date} t/m {closure.end_date}
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {closure.reason ? closure.reason : "Geen reden"}
+                  {closure.can_work ? " - Kan werken" : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:border-rose-300"
+                onClick={() => handleDeleteClosure(closure.id)}
+              >
+                Verwijder
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+
+  const mobileDateActionContent = (() => {
+    switch (activePanel) {
+      case "entries":
+        return entryManagerContent;
+      case "leave":
+        return leaveManagerContent;
+      case "vacations":
+        return vacationManagerContent;
+      case "closures":
+        return closureManagerContent;
+      default:
+        return null;
+    }
+  })();
+
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 py-4 sm:gap-3 sm:px-5 sm:py-6">
@@ -1968,7 +2308,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid gap-3 xl:gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
+        <div className="grid gap-3 pb-24 md:pb-0 xl:gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
           <div className="rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm sm:p-3">
             <div className="sticky top-0 z-10 -mx-2 border-b border-zinc-200 bg-white/95 px-2 pb-2 pt-2 backdrop-blur sm:-mx-3 sm:px-3 md:rounded-t-2xl md:pb-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2384,8 +2724,13 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => {
                       setActivePanel(item.id);
-                      if (item.id === "entries") {
-                        setShowMobileEntrySheet(true);
+                      if (
+                        item.id !== "entries" &&
+                        item.id !== "leave" &&
+                        item.id !== "vacations" &&
+                        item.id !== "closures"
+                      ) {
+                        setShowMobileEntrySheet(false);
                       }
                     }}
                     className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
@@ -2412,7 +2757,7 @@ export default function DashboardPage() {
               </summary>
               {entryManagerContent}
             </details>
-            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+            <details className={`hidden rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm md:block ${
               activePanel === "leave" ? "" : "hidden"
             }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
@@ -2684,7 +3029,7 @@ export default function DashboardPage() {
                 </p>
               ) : null}
             </details>
-            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+            <details className={`hidden rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm md:block ${
               activePanel === "vacations" ? "" : "hidden"
             }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
@@ -2791,7 +3136,7 @@ export default function DashboardPage() {
                 )}
               </div>
             </details>
-            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+            <details className={`hidden rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm md:block ${
               activePanel === "closures" ? "" : "hidden"
             }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
@@ -3011,31 +3356,33 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-      {selectedDate && !showMobileEntrySheet ? (
+      {mobileDateAction && !showMobileEntrySheet ? (
         <div className="fixed inset-x-3 bottom-3 z-30 md:hidden">
           <button
             type="button"
+            disabled={!selectedDate}
             className="flex w-full items-center justify-between rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left shadow-lg"
             onClick={() => {
-              setActivePanel("entries");
               setShowMobileEntrySheet(true);
             }}
           >
             <span>
               <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                Geselecteerde dag
+                {selectedDate ? "Geselecteerde dag" : "Kies een datum"}
               </span>
               <span className="block text-sm font-semibold text-zinc-900">
-                {selectedDateLabel}
+                {selectedDate ? selectedDateLabel : mobileDateAction.prompt}
               </span>
             </span>
-            <span className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white">
-              Werkuren
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${
+              selectedDate ? "bg-rose-600" : "bg-zinc-400"
+            }`}>
+              {mobileDateAction.label}
             </span>
           </button>
         </div>
       ) : null}
-      {selectedDate && showMobileEntrySheet ? (
+      {selectedDate && mobileDateAction && showMobileEntrySheet ? (
         <div className="fixed inset-0 z-40 bg-black/25 md:hidden">
           <button
             type="button"
@@ -3048,7 +3395,7 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                  Werkuren beheren
+                  {mobileDateAction.title}
                 </p>
                 <h2 className="mt-1 text-base font-semibold text-zinc-900">
                   {selectedDateLabel}
@@ -3062,7 +3409,7 @@ export default function DashboardPage() {
                 Sluit
               </button>
             </div>
-            {entryManagerContent}
+            {mobileDateActionContent}
           </div>
         </div>
       ) : null}
