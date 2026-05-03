@@ -158,6 +158,7 @@ export default function DashboardPage() {
   >(null);
   const [showBalanceChart, setShowBalanceChart] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [showMobileEntrySheet, setShowMobileEntrySheet] = useState(false);
   const [activePanel, setActivePanel] = useState<
     | "entries"
     | "leave"
@@ -580,6 +581,15 @@ export default function DashboardPage() {
     return closureMap.get(selectedDate) ?? [];
   }, [closureMap, selectedDate]);
 
+  const selectedDateLabel = useMemo(() => {
+    if (!selectedDate) return "";
+    return new Date(selectedDate).toLocaleDateString("nl-NL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  }, [selectedDate]);
+
   useEffect(() => {
     if (!selectedDate) return;
     setLeaveDate(selectedDate);
@@ -599,6 +609,7 @@ export default function DashboardPage() {
     setSelectedDate(iso);
     setFormDate(iso);
     setEditingEntryId(null);
+    setShowMobileEntrySheet(true);
   }
 
   function goToToday() {
@@ -937,6 +948,7 @@ export default function DashboardPage() {
         }
         setFormNotes("");
         setEditingEntryId(null);
+        setShowMobileEntrySheet(false);
         await loadEntries(userId);
       }
     } else {
@@ -964,6 +976,7 @@ export default function DashboardPage() {
         });
         setFormNotes("");
         setEditingEntryId(null);
+        setShowMobileEntrySheet(false);
         await loadEntries(userId);
       }
     }
@@ -1130,6 +1143,7 @@ export default function DashboardPage() {
 
   function handleEditEntry(entry: WorkEntry) {
     setActivePanel("entries");
+    setShowMobileEntrySheet(true);
     setEditingEntryId(entry.id);
     setFormDate(entry.work_date);
     setFormHours(String(entry.hours));
@@ -1734,6 +1748,153 @@ export default function DashboardPage() {
     </>
   );
 
+  const entryManagerContent = (
+    <>
+      {editingEntryId ? (
+        <p className="mt-2 text-xs font-semibold text-amber-700">
+          Bewerken: je past een bestaande dienst aan.
+        </p>
+      ) : null}
+      <div className="mt-4 space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+          Bestaande diensten op geselecteerde datum
+        </p>
+        {selectedEntries.length === 0 ? (
+          <p className="text-xs text-zinc-500">
+            Nog geen diensten om aan te passen op deze dag.
+          </p>
+        ) : (
+          selectedEntries.map((entry) => (
+            <div
+              key={entry.id}
+              className="flex items-center justify-between rounded-xl border border-zinc-200 px-3 py-2"
+            >
+              <div>
+                <p className="text-sm font-semibold text-zinc-800">
+                  {entry.hours}u -{" "}
+                  {entry.status === "final" ? "Definitief" : "Concept"}
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {entry.shift_type === "day"
+                    ? "Dagdienst"
+                    : entry.shift_type === "evening"
+                    ? "Avonddienst"
+                    : entry.shift_type === "night"
+                    ? "Nachtdienst"
+                    : "KTO"}
+                  {entry.notes ? ` - ${entry.notes}` : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                onClick={() => handleEditEntry(entry)}
+              >
+                Bewerk
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <form className="mt-4 flex flex-col gap-3" onSubmit={handleAddEntry}>
+        {selectedLeaveHours > 0 ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Let op: er staat {selectedLeaveHours}u verlof op deze datum.
+            Werkuren kunnen bestaand verlof overschrijven.
+          </p>
+        ) : null}
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Datum (geselecteerd)
+          <input
+            type="date"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={formDate}
+            onChange={(event) => setFormDate(event.target.value)}
+            required
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Uren
+          <input
+            type="number"
+            step="0.25"
+            min="0"
+            max="24"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={formHours}
+            onChange={(event) => setFormHours(event.target.value)}
+            required
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Status
+          <select
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={formStatus}
+            onChange={(event) =>
+              setFormStatus(event.target.value as "draft" | "final")
+            }
+          >
+            <option value="draft">Concept</option>
+            <option value="final">Definitief</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Diensttype
+          <select
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={formShiftType}
+            onChange={(event) =>
+              setFormShiftType(
+                event.target.value as "day" | "evening" | "night" | "kto"
+              )
+            }
+          >
+            <option value="day">Dagdienst</option>
+            <option value="evening">Avonddienst</option>
+            <option value="night">Nachtdienst</option>
+            <option value="kto">KTO</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+          Opmerking (optioneel)
+          <input
+            type="text"
+            className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
+            value={formNotes}
+            onChange={(event) => setFormNotes(event.target.value)}
+          />
+        </label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-60"
+            disabled={formBusy || !hasSession}
+          >
+            {formBusy
+              ? "Opslaan..."
+              : editingEntryId
+              ? "Uren bijwerken"
+              : "Uren opslaan"}
+          </button>
+          {editingEntryId ? (
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-full border border-zinc-200 px-4 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-300"
+              onClick={handleCancelEdit}
+              disabled={formBusy}
+            >
+              Annuleren
+            </button>
+          ) : null}
+        </div>
+        {!hasSession ? (
+          <p className="text-xs text-zinc-500">Log in om uren op te slaan.</p>
+        ) : null}
+      </form>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 py-4 sm:gap-3 sm:px-5 sm:py-6">
@@ -2222,7 +2383,12 @@ export default function DashboardPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setActivePanel(item.id)}
+                    onClick={() => {
+                      setActivePanel(item.id);
+                      if (item.id === "entries") {
+                        setShowMobileEntrySheet(true);
+                      }
+                    }}
                     className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                       activePanel === item.id
                         ? "border-rose-600 bg-rose-600 text-white"
@@ -2234,7 +2400,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
-            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+            <details className={`hidden rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm md:block ${
               activePanel === "entries" ? "" : "hidden"
             }`} open={activePanel === "entries"}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
@@ -2245,153 +2411,7 @@ export default function DashboardPage() {
                     : "Voeg een concept of definitieve dienst toe."}
                 </span>
               </summary>
-              {editingEntryId ? (
-                <p className="mt-2 text-xs font-semibold text-amber-700">
-                  Bewerken: je past een bestaande dienst aan.
-                </p>
-              ) : null}
-              <div className="mt-4 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                  Bestaande diensten op geselecteerde datum
-                </p>
-                {selectedEntries.length === 0 ? (
-                  <p className="text-xs text-zinc-500">
-                    Nog geen diensten om aan te passen op deze dag.
-                  </p>
-                ) : (
-                  selectedEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between rounded-xl border border-zinc-200 px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-800">
-                          {entry.hours}u -{" "}
-                          {entry.status === "final" ? "Definitief" : "Concept"}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {entry.shift_type === "day"
-                            ? "Dagdienst"
-                            : entry.shift_type === "evening"
-                            ? "Avonddienst"
-                            : entry.shift_type === "night"
-                            ? "Nachtdienst"
-                            : "KTO"}
-                          {entry.notes ? ` - ${entry.notes}` : ""}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                        onClick={() => handleEditEntry(entry)}
-                      >
-                        Bewerk
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-              <form
-                className="mt-4 flex flex-col gap-3"
-                onSubmit={handleAddEntry}
-              >
-                {selectedLeaveHours > 0 ? (
-                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    Let op: er staat {selectedLeaveHours}u verlof op deze datum.
-                    Werkuren kunnen bestaand verlof overschrijven.
-                  </p>
-                ) : null}
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Datum (geselecteerd)
-                  <input
-                    type="date"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={formDate}
-                    onChange={(event) => setFormDate(event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Uren
-                  <input
-                    type="number"
-                    step="0.25"
-                    min="0"
-                    max="24"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={formHours}
-                    onChange={(event) => setFormHours(event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Status
-                  <select
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={formStatus}
-                    onChange={(event) =>
-                      setFormStatus(event.target.value as "draft" | "final")
-                    }
-                  >
-                    <option value="draft">Concept</option>
-                    <option value="final">Definitief</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Diensttype
-                  <select
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={formShiftType}
-                    onChange={(event) =>
-                      setFormShiftType(
-                        event.target.value as "day" | "evening" | "night" | "kto"
-                      )
-                    }
-                  >
-                    <option value="day">Dagdienst</option>
-                    <option value="evening">Avonddienst</option>
-                    <option value="night">Nachtdienst</option>
-                    <option value="kto">KTO</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-                  Opmerking (optioneel)
-                  <input
-                    type="text"
-                    className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs focus:border-zinc-400 focus:outline-none"
-                    value={formNotes}
-                    onChange={(event) => setFormNotes(event.target.value)}
-                  />
-                </label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-60"
-                    disabled={formBusy || !hasSession}
-                  >
-                    {formBusy
-                      ? "Opslaan..."
-                      : editingEntryId
-                      ? "Uren bijwerken"
-                      : "Uren opslaan"}
-                  </button>
-                  {editingEntryId ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-full border border-zinc-200 px-4 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-300"
-                      onClick={handleCancelEdit}
-                      disabled={formBusy}
-                    >
-                      Annuleren
-                    </button>
-                  ) : null}
-                </div>
-                {!hasSession ? (
-                  <p className="text-xs text-zinc-500">
-                    Log in om uren op te slaan.
-                  </p>
-                ) : null}
-              </form>
+              {entryManagerContent}
             </details>
             <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
               activePanel === "leave" ? "" : "hidden"
@@ -2992,6 +3012,61 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+      {selectedDate && !showMobileEntrySheet ? (
+        <div className="fixed inset-x-3 bottom-3 z-30 md:hidden">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left shadow-lg"
+            onClick={() => {
+              setActivePanel("entries");
+              setShowMobileEntrySheet(true);
+            }}
+          >
+            <span>
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                Geselecteerde dag
+              </span>
+              <span className="block text-sm font-semibold text-zinc-900">
+                {selectedDateLabel}
+              </span>
+            </span>
+            <span className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white">
+              Werkuren
+            </span>
+          </button>
+        </div>
+      ) : null}
+      {selectedDate && showMobileEntrySheet ? (
+        <div className="fixed inset-0 z-40 bg-black/25 md:hidden">
+          <button
+            type="button"
+            aria-label="Sluiten"
+            className="absolute inset-0"
+            onClick={() => setShowMobileEntrySheet(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-3xl bg-white px-4 pb-6 pt-4 shadow-2xl">
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  Werkuren beheren
+                </p>
+                <h2 className="mt-1 text-base font-semibold text-zinc-900">
+                  {selectedDateLabel}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700"
+                onClick={() => setShowMobileEntrySheet(false)}
+              >
+                Sluit
+              </button>
+            </div>
+            {entryManagerContent}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
