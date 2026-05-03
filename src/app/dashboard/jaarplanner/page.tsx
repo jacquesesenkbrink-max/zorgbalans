@@ -147,6 +147,8 @@ export default function DashboardPage() {
   const carryoverRef = useRef("0");
   const leaveRegularRef = useRef("0");
   const leaveBalanceRef = useRef("0");
+  const dayButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingScrollDateRef = useRef<string | null>(null);
   const [legendFocus, setLegendFocus] = useState<
     | "holiday"
     | "vacation_region"
@@ -641,6 +643,24 @@ export default function DashboardPage() {
   }, [activePanel, plannedByDate, selectedDate]);
 
   useEffect(() => {
+    const targetDate = pendingScrollDateRef.current;
+    if (!targetDate || targetDate !== selectedDate) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const targetButton = dayButtonRefs.current.get(targetDate);
+      if (!targetButton) return;
+      targetButton.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+      pendingScrollDateRef.current = null;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedDate, selectedYear]);
+
+  useEffect(() => {
     setSelectedEntryIds((current) =>
       current.filter((id) => filteredEntryIds.includes(id))
     );
@@ -655,6 +675,7 @@ export default function DashboardPage() {
   function goToToday() {
     const now = new Date();
     const iso = formatLocalDate(now);
+    pendingScrollDateRef.current = iso;
     setSelectedYear(now.getFullYear());
     setSelectedDate(iso);
     setFormDate(iso);
@@ -2474,6 +2495,13 @@ export default function DashboardPage() {
                           <button
                             type="button"
                             key={cell.iso}
+                            ref={(element) => {
+                              if (element) {
+                                dayButtonRefs.current.set(cell.iso, element);
+                              } else {
+                                dayButtonRefs.current.delete(cell.iso);
+                              }
+                            }}
                             onClick={() => handleSelectDate(cell.iso)}
                             title={tooltip}
                             className={`relative flex h-11 flex-col items-center justify-center rounded-md border px-0.5 pr-3 sm:h-10 sm:rounded-lg sm:px-1 sm:pr-4 ${tone} ${
