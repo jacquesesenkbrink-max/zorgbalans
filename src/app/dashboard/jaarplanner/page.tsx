@@ -646,15 +646,23 @@ export default function DashboardPage() {
     const targetDate = pendingScrollDateRef.current;
     if (!targetDate || targetDate !== selectedDate) return;
 
+    const scrollToDateButton = (iso: string, attempts = 0) => {
+      const targetButton = dayButtonRefs.current.get(iso);
+      if (targetButton) {
+        targetButton.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+        pendingScrollDateRef.current = null;
+        return;
+      }
+      if (attempts >= 6) return;
+      window.requestAnimationFrame(() => scrollToDateButton(iso, attempts + 1));
+    };
+
     const frame = window.requestAnimationFrame(() => {
-      const targetButton = dayButtonRefs.current.get(targetDate);
-      if (!targetButton) return;
-      targetButton.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-        inline: "nearest",
-      });
-      pendingScrollDateRef.current = null;
+      scrollToDateButton(targetDate);
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -675,11 +683,23 @@ export default function DashboardPage() {
   function goToToday() {
     const now = new Date();
     const iso = formatLocalDate(now);
+    const alreadySelected =
+      selectedDate === iso && selectedYear === now.getFullYear();
     pendingScrollDateRef.current = iso;
     setSelectedYear(now.getFullYear());
     setSelectedDate(iso);
     setFormDate(iso);
     setLegendFocus(null);
+    if (alreadySelected) {
+      window.requestAnimationFrame(() => {
+        const targetButton = dayButtonRefs.current.get(iso);
+        targetButton?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+      });
+    }
   }
 
   function handleToggleEntrySelection(id: string) {
