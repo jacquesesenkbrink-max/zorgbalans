@@ -2530,7 +2530,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto xl:pr-1">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <div className="hidden rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm md:block">
               <h2 className="text-base font-semibold">Dagdetails</h2>
               <p className="mt-1 text-sm text-zinc-600">
                 Klik op een dag in de kalender om details te bekijken.
