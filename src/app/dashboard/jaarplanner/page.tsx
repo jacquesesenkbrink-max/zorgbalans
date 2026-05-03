@@ -96,6 +96,7 @@ export default function DashboardPage() {
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const todayIso = useMemo(() => formatLocalDate(new Date()), []);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [formDate, setFormDate] = useState("");
   const [formHours, setFormHours] = useState("8");
@@ -157,6 +158,16 @@ export default function DashboardPage() {
   >(null);
   const [showBalanceChart, setShowBalanceChart] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [activePanel, setActivePanel] = useState<
+    | "entries"
+    | "leave"
+    | "contract"
+    | "leaveBalance"
+    | "carryover"
+    | "vacations"
+    | "closures"
+    | "list"
+  >("entries");
 
   useEffect(() => {
     let isMounted = true;
@@ -192,6 +203,26 @@ export default function DashboardPage() {
     setFormDate(start);
     setSelectedYear(safeYear);
   }, []);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    const currentDate = new Date(selectedDate);
+    if (currentDate.getFullYear() === selectedYear) return;
+
+    const sameDayInYear = new Date(
+      selectedYear,
+      currentDate.getMonth(),
+      currentDate.getDate()
+    );
+    const targetDate =
+      sameDayInYear.getFullYear() === selectedYear
+        ? sameDayInYear
+        : new Date(selectedYear, 0, 1);
+    const targetIso = formatLocalDate(targetDate);
+
+    setSelectedDate(targetIso);
+    setFormDate(targetIso);
+  }, [selectedYear]);
 
   const hasSession = useMemo(() => Boolean(email && userId), [email, userId]);
 
@@ -568,6 +599,15 @@ export default function DashboardPage() {
     setSelectedDate(iso);
     setFormDate(iso);
     setEditingEntryId(null);
+  }
+
+  function goToToday() {
+    const now = new Date();
+    const iso = formatLocalDate(now);
+    setSelectedYear(now.getFullYear());
+    setSelectedDate(iso);
+    setFormDate(iso);
+    setLegendFocus(null);
   }
 
   function handleToggleEntrySelection(id: string) {
@@ -1089,6 +1129,7 @@ export default function DashboardPage() {
   }
 
   function handleEditEntry(entry: WorkEntry) {
+    setActivePanel("entries");
     setEditingEntryId(entry.id);
     setFormDate(entry.work_date);
     setFormHours(String(entry.hours));
@@ -1424,17 +1465,287 @@ export default function DashboardPage() {
     }
   }
 
+  const statsContent = (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
+          <p className="text-xs font-semibold uppercase text-zinc-400">
+            Cumulatief t/m geselecteerde datum
+          </p>
+          <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
+            {todayBalance}u
+          </p>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
+          <p className="text-xs font-semibold uppercase text-zinc-400">
+            Prognose einde jaar
+          </p>
+          <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
+            {yearEndBalance}u
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase text-zinc-400">
+            Werkelijk (jaar t/m 31-12)
+          </p>
+          <p className="mt-1 text-lg font-semibold text-zinc-900">
+            {ytdTotals.actual}u
+          </p>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase text-zinc-400">
+            Contract (jaar t/m 31-12)
+          </p>
+          <p className="mt-1 text-lg font-semibold text-zinc-900">
+            {ytdTotals.planned}u
+          </p>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase text-zinc-400">
+            Verschil (jaar t/m 31-12)
+          </p>
+          <p className="mt-1 text-lg font-semibold text-zinc-900">
+            {ytdTotals.delta}u
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase text-zinc-400"
+          onClick={() => setShowBalanceChart((current) => !current)}
+          aria-expanded={showBalanceChart}
+        >
+          <span>Cumulatief saldo per maand</span>
+          <span className="text-[11px] text-zinc-500">
+            {showBalanceChart ? "Verberg" : "Toon"}
+          </span>
+        </button>
+        {showBalanceChart ? (
+          <div className="mt-3 h-40 w-full">
+            {(() => {
+              const width = 600;
+              const height = 160;
+              const padX = 24;
+              const padY = 18;
+              const values = monthlyBalancePoints.map((point) => point.value);
+              const min = Math.min(0, ...values);
+              const max = Math.max(0, ...values);
+              const range = max - min || 1;
+              const xStep =
+                monthlyBalancePoints.length > 1
+                  ? (width - padX * 2) / (monthlyBalancePoints.length - 1)
+                  : 0;
+              const yScale = (height - padY * 2) / range;
+              const points = monthlyBalancePoints.map((point, index) => {
+                const x = padX + index * xStep;
+                const y = padY + (max - point.value) * yScale;
+                return { x, y, value: point.value, label: point.label };
+              });
+              const line = points
+                .map((point) => `${point.x},${point.y}`)
+                .join(" ");
+              const zeroY = padY + (max - 0) * yScale;
+              return (
+                <svg
+                  viewBox={`0 0 ${width} ${height}`}
+                  className="h-full w-full"
+                >
+                  <line
+                    x1={padX}
+                    x2={width - padX}
+                    y1={zeroY}
+                    y2={zeroY}
+                    stroke="#94a3b8"
+                    strokeWidth="1.5"
+                  />
+                  <polyline
+                    fill="none"
+                    stroke="#c04a7a"
+                    strokeWidth="2"
+                    points={line}
+                  />
+                  {points.map((point) => (
+                    <>
+                      <circle
+                        key={point.x}
+                        cx={point.x}
+                        cy={point.y}
+                        r="2.5"
+                        fill="#e46a99"
+                      />
+                      <title>{`${point.label}: ${point.value.toFixed(2)}u`}</title>
+                    </>
+                  ))}
+                  {points.map((point) => (
+                    <text
+                      key={`${point.x}-label`}
+                      x={point.x}
+                      y={height - 4}
+                      textAnchor="middle"
+                      fontSize="9"
+                      fill="#94a3b8"
+                    >
+                      {point.label}
+                    </text>
+                  ))}
+                </svg>
+              );
+            })()}
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  const filterContent = (
+    <>
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
+          <input
+            type="checkbox"
+            checked={showDraft}
+            onChange={(event) => setShowDraft(event.target.checked)}
+          />
+          Concept
+        </label>
+        <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
+          <input
+            type="checkbox"
+            checked={showFinal}
+            onChange={(event) => setShowFinal(event.target.checked)}
+          />
+          Definitief
+        </label>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            legendFocus === "holiday"
+              ? "border-rose-500 bg-rose-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600"
+          }`}
+          onClick={() =>
+            setLegendFocus((current) =>
+              current === "holiday" ? null : "holiday"
+            )
+          }
+          aria-pressed={legendFocus === "holiday"}
+        >
+          <span className="h-2 w-2 rounded-full bg-blue-700" />
+          Feestdag
+        </button>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            legendFocus === "vacation_region"
+              ? "border-rose-500 bg-rose-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600"
+          }`}
+          onClick={() =>
+            setLegendFocus((current) =>
+              current === "vacation_region" ? null : "vacation_region"
+            )
+          }
+          aria-pressed={legendFocus === "vacation_region"}
+        >
+          <span className="h-2 w-2 rounded-full bg-orange-400" />
+          Vakantie (Noord)
+        </button>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            legendFocus === "vacation_personal"
+              ? "border-rose-500 bg-rose-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600"
+          }`}
+          onClick={() =>
+            setLegendFocus((current) =>
+              current === "vacation_personal" ? null : "vacation_personal"
+            )
+          }
+          aria-pressed={legendFocus === "vacation_personal"}
+        >
+          <span className="h-2 w-2 rounded-full bg-teal-400" />
+          Eigen vakantie
+        </button>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            legendFocus === "vacation_unavailable"
+              ? "border-rose-500 bg-rose-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600"
+          }`}
+          onClick={() =>
+            setLegendFocus((current) =>
+              current === "vacation_unavailable"
+                ? null
+                : "vacation_unavailable"
+            )
+          }
+          aria-pressed={legendFocus === "vacation_unavailable"}
+        >
+          <span className="h-2 w-2 rounded-full bg-rose-600" />
+          Niet beschikbaar
+        </button>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            legendFocus === "leave"
+              ? "border-rose-500 bg-rose-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600"
+          }`}
+          onClick={() =>
+            setLegendFocus((current) => (current === "leave" ? null : "leave"))
+          }
+          aria-pressed={legendFocus === "leave"}
+        >
+          <span className="h-2 w-2 rounded-full bg-indigo-400" />
+          Verlof
+        </button>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            legendFocus === "closure"
+              ? "border-rose-500 bg-rose-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600"
+          }`}
+          onClick={() =>
+            setLegendFocus((current) =>
+              current === "closure" ? null : "closure"
+            )
+          }
+          aria-pressed={legendFocus === "closure"}
+        >
+          <span className="h-2 w-2 rounded-full bg-purple-400" />
+          Gesloten
+        </button>
+        {legendFocus ? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+            onClick={() => setLegendFocus(null)}
+          >
+            Reset focus
+          </button>
+        ) : null}
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-6">
-        <div className="flex items-center justify-between">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 py-4 sm:gap-3 sm:px-5 sm:py-6">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
               Dashboard
             </p>
             <h1 className="text-xl font-semibold">Jaarplanner</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="w-full overflow-x-auto pb-1 sm:w-auto sm:overflow-visible sm:pb-0">
+            <div className="flex min-w-max items-center gap-2">
             <a
               href="/dashboard"
               className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
@@ -1475,18 +1786,19 @@ export default function DashboardPage() {
             >
               Account
             </a>
+            </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-2.5 shadow-sm sm:p-3">
           {loading ? (
-            <p className="text-sm text-zinc-600">Sessiestatus laden...</p>
+            <p className="text-xs text-zinc-600 sm:text-sm">Sessiestatus laden...</p>
           ) : hasSession ? (
-            <p className="text-sm text-zinc-600">
+            <p className="text-xs text-zinc-600 sm:text-sm">
               Ingelogd als <span className="font-semibold">{email}</span>
             </p>
           ) : (
-            <p className="text-sm text-zinc-600">
+            <p className="text-xs text-zinc-600 sm:text-sm">
               Je bent niet ingelogd.{" "}
               <a className="font-semibold text-zinc-900" href="/login">
                 Log in
@@ -1496,15 +1808,15 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-            <div className="sticky top-0 z-10 -mx-3 border-b border-zinc-200 bg-white/95 px-3 pb-2 pt-2 backdrop-blur md:rounded-t-2xl md:pb-3">
+        <div className="grid gap-3 xl:gap-4 xl:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm sm:p-3">
+            <div className="sticky top-0 z-10 -mx-2 border-b border-zinc-200 bg-white/95 px-2 pb-2 pt-2 backdrop-blur sm:-mx-3 sm:px-3 md:rounded-t-2xl md:pb-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold md:text-base">
                     Jaaroverzicht
                   </h2>
-                  <p className="mt-1 text-xs text-zinc-600 md:text-sm">
+                  <p className="mt-1 hidden text-xs text-zinc-600 md:block md:text-sm">
                     Overzicht van geplande uren, concept en definitief.
                   </p>
                 </div>
@@ -1528,6 +1840,13 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                    onClick={goToToday}
+                  >
+                    Vandaag
+                  </button>
+                  <button
+                    type="button"
+                    className="hidden rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300 md:inline-flex"
                     onClick={() => setShowStats((current) => !current)}
                     aria-expanded={showStats}
                   >
@@ -1535,279 +1854,31 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-              {showStats ? (
-                <>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
-                      <p className="text-xs font-semibold uppercase text-zinc-400">
-                        Cumulatief t/m geselecteerde datum
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
-                        {todayBalance}u
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-white px-2 py-2 md:px-3">
-                      <p className="text-xs font-semibold uppercase text-zinc-400">
-                        Prognose einde jaar
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-zinc-900 md:text-xl">
-                        {yearEndBalance}u
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                        Werkelijk (jaar t/m 31-12)
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900">
-                        {ytdTotals.actual}u
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                        Contract (jaar t/m 31-12)
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900">
-                        {ytdTotals.planned}u
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase text-zinc-400">
-                        Verschil (jaar t/m 31-12)
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900">
-                        {ytdTotals.delta}u
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 rounded-2xl border border-zinc-200 bg-white px-3 py-2">
+              <div className="mt-3 md:hidden">
+                <details className="rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                  <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Filters en statistieken
+                  </summary>
+                  <div className="mt-3">
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase text-zinc-400"
-                      onClick={() => setShowBalanceChart((current) => !current)}
-                      aria-expanded={showBalanceChart}
+                      className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                      onClick={() => setShowStats((current) => !current)}
+                      aria-expanded={showStats}
                     >
-                      <span>Cumulatief saldo per maand</span>
-                      <span className="text-[11px] text-zinc-500">
-                        {showBalanceChart ? "Verberg" : "Toon"}
-                      </span>
+                      {showStats ? "Verberg statistieken" : "Toon statistieken"}
                     </button>
-                    {showBalanceChart ? (
-                      <div className="mt-3 h-40 w-full">
-                        {(() => {
-                          const width = 600;
-                          const height = 160;
-                          const padX = 24;
-                          const padY = 18;
-                          const values = monthlyBalancePoints.map((point) => point.value);
-                          const min = Math.min(0, ...values);
-                          const max = Math.max(0, ...values);
-                          const range = max - min || 1;
-                          const xStep =
-                            monthlyBalancePoints.length > 1
-                              ? (width - padX * 2) /
-                                (monthlyBalancePoints.length - 1)
-                              : 0;
-                          const yScale = (height - padY * 2) / range;
-                          const points = monthlyBalancePoints.map(
-                            (point, index) => {
-                              const x = padX + index * xStep;
-                              const y = padY + (max - point.value) * yScale;
-                              return { x, y, value: point.value, label: point.label };
-                            }
-                          );
-                          const line = points
-                            .map((point) => `${point.x},${point.y}`)
-                            .join(" ");
-                          const zeroY = padY + (max - 0) * yScale;
-                          return (
-                            <svg
-                              viewBox={`0 0 ${width} ${height}`}
-                              className="h-full w-full"
-                            >
-                              <line
-                                x1={padX}
-                                x2={width - padX}
-                                y1={zeroY}
-                                y2={zeroY}
-                                stroke="#94a3b8"
-                                strokeWidth="1.5"
-                              />
-                              <polyline
-                                fill="none"
-                                stroke="#c04a7a"
-                                strokeWidth="2"
-                                points={line}
-                              />
-                              {points.map((point) => (
-                                <circle
-                                  key={point.x}
-                                  cx={point.x}
-                                  cy={point.y}
-                                  r="2.5"
-                                  fill="#e46a99"
-                                >
-                                  <title>{`${point.label}: ${point.value.toFixed(
-                                    2
-                                  )}u`}</title>
-                                </circle>
-                              ))}
-                              {points.map((point) => (
-                                <text
-                                  key={`${point.x}-label`}
-                                  x={point.x}
-                                  y={height - 4}
-                                  textAnchor="middle"
-                                  fontSize="9"
-                                  fill="#94a3b8"
-                                >
-                                  {point.label}
-                                </text>
-                              ))}
-                            </svg>
-                          );
-                        })()}
-                      </div>
-                    ) : null}
+                    {showStats ? <div className="mt-3">{statsContent}</div> : null}
+                    <div className="mt-3">{filterContent}</div>
                   </div>
-                </>
-              ) : null}
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-                <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
-                  <input
-                    type="checkbox"
-                    checked={showDraft}
-                    onChange={(event) => setShowDraft(event.target.checked)}
-                  />
-                  Concept
-                </label>
-                <label className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1">
-                  <input
-                    type="checkbox"
-                    checked={showFinal}
-                    onChange={(event) => setShowFinal(event.target.checked)}
-                  />
-                  Definitief
-                </label>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                    legendFocus === "holiday"
-                      ? "border-rose-500 bg-rose-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
-                  }`}
-                  onClick={() =>
-                    setLegendFocus((current) =>
-                      current === "holiday" ? null : "holiday"
-                    )
-                  }
-                  aria-pressed={legendFocus === "holiday"}
-                >
-                  <span className="h-2 w-2 rounded-full bg-blue-700" />
-                  Feestdag
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                    legendFocus === "vacation_region"
-                      ? "border-rose-500 bg-rose-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
-                  }`}
-                  onClick={() =>
-                    setLegendFocus((current) =>
-                      current === "vacation_region" ? null : "vacation_region"
-                    )
-                  }
-                  aria-pressed={legendFocus === "vacation_region"}
-                >
-                  <span className="h-2 w-2 rounded-full bg-orange-400" />
-                  Vakantie (Noord)
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                    legendFocus === "vacation_personal"
-                      ? "border-rose-500 bg-rose-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
-                  }`}
-                  onClick={() =>
-                    setLegendFocus((current) =>
-                      current === "vacation_personal"
-                        ? null
-                        : "vacation_personal"
-                    )
-                  }
-                  aria-pressed={legendFocus === "vacation_personal"}
-                >
-                  <span className="h-2 w-2 rounded-full bg-teal-400" />
-                  Eigen vakantie
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                    legendFocus === "vacation_unavailable"
-                      ? "border-rose-500 bg-rose-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
-                  }`}
-                  onClick={() =>
-                    setLegendFocus((current) =>
-                      current === "vacation_unavailable"
-                        ? null
-                        : "vacation_unavailable"
-                    )
-                  }
-                  aria-pressed={legendFocus === "vacation_unavailable"}
-                >
-                  <span className="h-2 w-2 rounded-full bg-rose-600" />
-                  Niet beschikbaar
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                    legendFocus === "leave"
-                      ? "border-rose-500 bg-rose-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
-                  }`}
-                  onClick={() =>
-                    setLegendFocus((current) =>
-                      current === "leave" ? null : "leave"
-                    )
-                  }
-                  aria-pressed={legendFocus === "leave"}
-                >
-                  <span className="h-2 w-2 rounded-full bg-indigo-400" />
-                  Verlof
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                    legendFocus === "closure"
-                      ? "border-rose-500 bg-rose-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
-                  }`}
-                  onClick={() =>
-                    setLegendFocus((current) =>
-                      current === "closure" ? null : "closure"
-                    )
-                  }
-                  aria-pressed={legendFocus === "closure"}
-                >
-                  <span className="h-2 w-2 rounded-full bg-purple-400" />
-                  Gesloten
-                </button>
-                {legendFocus ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
-                    onClick={() => setLegendFocus(null)}
-                  >
-                    Reset focus
-                  </button>
-                ) : null}
+                </details>
               </div>
+              <div className="mt-4 hidden md:block">
+                {showStats ? statsContent : null}
+              </div>
+              <div className="mt-4 hidden md:block">{filterContent}</div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 md:grid-cols-2">
               {months.map((month) => {
                 const cells = buildMonthCells(month);
                 const monthKey = `${month.year}-${String(month.monthIndex + 1).padStart(2, "0")}`;
@@ -1815,7 +1886,7 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={`${month.year}-${month.monthIndex}`}
-                    className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3"
+                    className="rounded-2xl border border-zinc-200 bg-zinc-50 p-2.5 sm:p-3"
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold capitalize text-zinc-700">
@@ -1882,16 +1953,36 @@ export default function DashboardPage() {
                           ? "bg-amber-100 text-amber-900"
                           : "bg-white text-zinc-500";
                         const isSelected = cell.iso === selectedDate;
+                        const isToday = cell.iso === todayIso;
+                        const tooltip = [
+                          cell.date.toLocaleDateString("nl-NL", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          }),
+                          `${totalHours}u`,
+                          holiday ? `Feestdag: ${holiday}` : null,
+                          hasRegionVacation ? "Vakantie Noord" : null,
+                          hasPersonalVacation ? "Eigen vakantie" : null,
+                          hasUnavailableVacation ? "Niet beschikbaar" : null,
+                          closuresForDay.length > 0 ? "Gesloten" : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" • ");
                         return (
                           <button
                             type="button"
                             key={cell.iso}
                             onClick={() => handleSelectDate(cell.iso)}
-                            className={`relative flex h-10 flex-col items-center justify-center rounded-lg border px-1 pr-4 ${tone} ${
+                            title={tooltip}
+                            className={`relative flex h-11 flex-col items-center justify-center rounded-md border px-0.5 pr-3 sm:h-10 sm:rounded-lg sm:px-1 sm:pr-4 ${tone} ${
                               cell.inMonth ? "" : "opacity-40"
                             } ${matchesFocus ? "" : "opacity-40"} ${
-                              isSelected ? "border-rose-500" : "border-zinc-200"
-                            }`}
+                              isSelected
+                                ? "border-rose-500"
+                                : "border-zinc-200"
+                            } ${isToday ? "ring-1 ring-sky-500" : ""}`}
                           >
                             {holiday ||
                             vacationsForDay.length > 0 ||
@@ -1942,7 +2033,7 @@ export default function DashboardPage() {
             <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <h2 className="text-base font-semibold">Dagdetails</h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Klik op een dag in de kalender om details te bekijken of te bewerken.
+                Klik op een dag in de kalender om details te bekijken.
               </p>
               {selectedDate ? (
                 <div className="mt-4 space-y-3 text-sm text-zinc-600">
@@ -2011,6 +2102,24 @@ export default function DashboardPage() {
                         ))}
                       </div>
                     ) : null}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                          Gepland totaal
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-zinc-800">
+                          {selectedEntries.reduce((sum, entry) => sum + entry.hours, 0)}u
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase text-zinc-400">
+                          Verlof totaal
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-zinc-800">
+                          {selectedLeaveHours}u
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {selectedEntries.length === 0 ? (
@@ -2046,13 +2155,6 @@ export default function DashboardPage() {
                             ) : null}
                           </div>
                           <div className="flex items-center gap-2 text-xs">
-                            <button
-                              type="button"
-                              className="rounded-full border border-zinc-200 px-3 py-1 font-semibold text-zinc-700 hover:border-zinc-300"
-                              onClick={() => handleEditEntry(entry)}
-                            >
-                              Bewerk
-                            </button>
                             <button
                               type="button"
                               className="rounded-full border border-rose-200 px-3 py-1 font-semibold text-rose-700 hover:border-rose-300"
@@ -2101,11 +2203,46 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <h2 className="text-base font-semibold">Acties</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Kies hier de actie die je wilt gebruiken.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {([
+                  { id: "entries", label: "Werkuren" },
+                  { id: "leave", label: "Verlof opnemen" },
+                  { id: "contract", label: "Contracturen" },
+                  { id: "leaveBalance", label: "Verlofsaldo" },
+                  { id: "carryover", label: "Startsaldo" },
+                  { id: "vacations", label: "Vakanties" },
+                  { id: "closures", label: "Sluitingsdagen" },
+                  { id: "list", label: "Jouw diensten" },
+                ] as const).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActivePanel(item.id)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      activePanel === item.id
+                        ? "border-rose-600 bg-rose-600 text-white"
+                        : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "entries" ? "" : "hidden"
+            }`} open={activePanel === "entries"}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
-                Nieuwe uren
+                Werkuren beheren
                 <span className="ml-2 text-xs font-normal text-zinc-500">
-                  Voeg een concept of definitieve dienst toe.
+                  {editingEntryId
+                    ? "Pas een bestaande dienst aan."
+                    : "Voeg een concept of definitieve dienst toe."}
                 </span>
               </summary>
               {editingEntryId ? (
@@ -2113,6 +2250,47 @@ export default function DashboardPage() {
                   Bewerken: je past een bestaande dienst aan.
                 </p>
               ) : null}
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  Bestaande diensten op geselecteerde datum
+                </p>
+                {selectedEntries.length === 0 ? (
+                  <p className="text-xs text-zinc-500">
+                    Nog geen diensten om aan te passen op deze dag.
+                  </p>
+                ) : (
+                  selectedEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between rounded-xl border border-zinc-200 px-3 py-2"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-800">
+                          {entry.hours}u -{" "}
+                          {entry.status === "final" ? "Definitief" : "Concept"}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {entry.shift_type === "day"
+                            ? "Dagdienst"
+                            : entry.shift_type === "evening"
+                            ? "Avonddienst"
+                            : entry.shift_type === "night"
+                            ? "Nachtdienst"
+                            : "KTO"}
+                          {entry.notes ? ` - ${entry.notes}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                        onClick={() => handleEditEntry(entry)}
+                      >
+                        Bewerk
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
               <form
                 className="mt-4 flex flex-col gap-3"
                 onSubmit={handleAddEntry}
@@ -2120,7 +2298,7 @@ export default function DashboardPage() {
                 {selectedLeaveHours > 0 ? (
                   <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Let op: er staat {selectedLeaveHours}u verlof op deze datum.
-                    Nieuwe uren overschrijven mogelijk je verlof.
+                    Werkuren kunnen bestaand verlof overschrijven.
                   </p>
                 ) : null}
                 <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
@@ -2215,7 +2393,9 @@ export default function DashboardPage() {
                 ) : null}
               </form>
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "leave" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Verlof opnemen
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2315,7 +2495,9 @@ export default function DashboardPage() {
                 )}
               </div>
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "contract" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Contracturen
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2356,7 +2538,9 @@ export default function DashboardPage() {
                 </p>
               ) : null}
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "leaveBalance" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Verlofsaldo
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2438,7 +2622,9 @@ export default function DashboardPage() {
                 </div>
               </div>
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "carryover" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Startsaldo 1 januari
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2479,7 +2665,9 @@ export default function DashboardPage() {
                 </p>
               ) : null}
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "vacations" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Vakanties
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2584,7 +2772,9 @@ export default function DashboardPage() {
                 )}
               </div>
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "closures" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Sluitingsdagen
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2682,7 +2872,9 @@ export default function DashboardPage() {
                 )}
               </div>
             </details>
-            <details className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <details className={`rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm ${
+              activePanel === "list" ? "" : "hidden"
+            }`}>
               <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
                 Jouw diensten
                 <span className="ml-2 text-xs font-normal text-zinc-500">
@@ -2803,6 +2995,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-
-
