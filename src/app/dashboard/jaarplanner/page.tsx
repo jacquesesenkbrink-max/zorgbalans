@@ -609,7 +609,6 @@ export default function DashboardPage() {
     setSelectedDate(iso);
     setFormDate(iso);
     setEditingEntryId(null);
-    setShowMobileEntrySheet(true);
   }
 
   function goToToday() {
