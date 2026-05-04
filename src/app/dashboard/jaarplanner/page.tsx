@@ -1222,6 +1222,39 @@ export default function DashboardPage() {
     await loadEntries(userId);
   }
 
+  async function handleDeleteSelectedDateEntries() {
+    if (!userId || !selectedDate || selectedEntries.length === 0) return;
+    const confirmed = window.confirm(
+      `Weet je zeker dat je alle werkuren op ${selectedDateLabel} wilt verwijderen?`
+    );
+    if (!confirmed) return;
+
+    setEntriesError(null);
+    const entriesToDelete = selectedEntries;
+    const ids = entriesToDelete.map((entry) => entry.id);
+    const { error } = await supabase.from("work_entries").delete().in("id", ids);
+    if (error) {
+      setEntriesError(error.message);
+      return;
+    }
+    pushUndoAction({
+      label: "Werkuren geselecteerde dag verwijderd",
+      undo: async () => {
+        await supabase
+          .from("work_entries")
+          .insert(entriesToDelete.map((entry) => ({ ...entry, user_id: userId })));
+        await loadEntries(userId);
+      },
+      redo: async () => {
+        await supabase.from("work_entries").delete().in("id", ids);
+        await loadEntries(userId);
+      },
+    });
+    setEditingEntryId(null);
+    setShowMobileEntrySheet(false);
+    await loadEntries(userId);
+  }
+
   function handleEditEntry(entry: WorkEntry) {
     setActivePanel("entries");
     setShowMobileEntrySheet(true);
@@ -1869,13 +1902,22 @@ export default function DashboardPage() {
                   {entry.notes ? ` - ${entry.notes}` : ""}
                 </p>
               </div>
-              <button
-                type="button"
-                className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                onClick={() => handleEditEntry(entry)}
-              >
-                Bewerk
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                  onClick={() => handleEditEntry(entry)}
+                >
+                  Bewerk
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:border-rose-300"
+                  onClick={() => handleDeleteEntry(entry.id)}
+                >
+                  Verwijder
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -3406,28 +3448,39 @@ export default function DashboardPage() {
       </main>
       {mobileDateAction && !showMobileEntrySheet ? (
         <div className="fixed inset-x-3 bottom-3 z-30 md:hidden">
-          <button
-            type="button"
-            disabled={!selectedDate}
-            className="flex w-full items-center justify-between rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left shadow-lg"
-            onClick={() => {
-              setShowMobileEntrySheet(true);
-            }}
-          >
-            <span>
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                {selectedDate ? "Geselecteerde dag" : "Kies een datum"}
+          <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-lg">
+            <button
+              type="button"
+              disabled={!selectedDate}
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => {
+                setShowMobileEntrySheet(true);
+              }}
+            >
+              <span>
+                <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                  {selectedDate ? "Geselecteerde dag" : "Kies een datum"}
+                </span>
+                <span className="block text-sm font-semibold text-zinc-900">
+                  {selectedDate ? selectedDateLabel : mobileDateAction.prompt}
+                </span>
               </span>
-              <span className="block text-sm font-semibold text-zinc-900">
-                {selectedDate ? selectedDateLabel : mobileDateAction.prompt}
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${
+                selectedDate ? "bg-rose-600" : "bg-zinc-400"
+              }`}>
+                {mobileDateAction.label}
               </span>
-            </span>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${
-              selectedDate ? "bg-rose-600" : "bg-zinc-400"
-            }`}>
-              {mobileDateAction.label}
-            </span>
-          </button>
+            </button>
+            {activePanel === "entries" && selectedEntries.length > 0 ? (
+              <button
+                type="button"
+                className="mt-3 w-full rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold text-rose-700 hover:border-rose-300"
+                onClick={handleDeleteSelectedDateEntries}
+              >
+                Verwijder werkuren van deze dag
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
       {selectedDate && mobileDateAction && showMobileEntrySheet ? (
